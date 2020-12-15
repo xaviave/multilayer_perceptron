@@ -2,7 +2,7 @@
 
 2. Source Information
 
-a) Creators: 
+a) Creators:
 
 	Dr. William H. Wolberg, General Surgery Dept., University of
 	Wisconsin,  Clinical Sciences Center, Madison, WI 53792
@@ -14,7 +14,7 @@ a) Creators:
 
 	Olvi L. Mangasarian, Computer Sciences Dept., University of
 	Wisconsin, 1210 West Dayton St., Madison, WI 53706
-	olvi@cs.wisc.edu 
+	olvi@cs.wisc.edu
 
 b) Donor: Nick Street
 
@@ -24,38 +24,38 @@ c) Date: November 1995
 
 first usage:
 
-	W.N. Street, W.H. Wolberg and O.L. Mangasarian 
+	W.N. Street, W.H. Wolberg and O.L. Mangasarian
 	Nuclear feature extraction for breast tumor diagnosis.
 	IS&T/SPIE 1993 International Symposium on Electronic Imaging: Science
 	and Technology, volume 1905, pages 861-870, San Jose, CA, 1993.
 
 OR literature:
 
-	O.L. Mangasarian, W.N. Street and W.H. Wolberg. 
-	Breast cancer diagnosis and prognosis via linear programming. 
+	O.L. Mangasarian, W.N. Street and W.H. Wolberg.
+	Breast cancer diagnosis and prognosis via linear programming.
 	Operations Research, 43(4), pages 570-577, July-August 1995.
 
 Medical literature:
 
-	W.H. Wolberg, W.N. Street, and O.L. Mangasarian. 
+	W.H. Wolberg, W.N. Street, and O.L. Mangasarian.
 	Machine learning techniques to diagnose breast cancer from
-	fine-needle aspirates.  
+	fine-needle aspirates.
 	Cancer Letters 77 (1994) 163-171.
 
-	W.H. Wolberg, W.N. Street, and O.L. Mangasarian. 
+	W.H. Wolberg, W.N. Street, and O.L. Mangasarian.
 	Image analysis and machine learning applied to breast cancer
-	diagnosis and prognosis.  
+	diagnosis and prognosis.
 	Analytical and Quantitative Cytology and Histology, Vol. 17
-	No. 2, pages 77-87, April 1995. 
+	No. 2, pages 77-87, April 1995.
 
-	W.H. Wolberg, W.N. Street, D.M. Heisey, and O.L. Mangasarian. 
+	W.H. Wolberg, W.N. Street, D.M. Heisey, and O.L. Mangasarian.
 	Computerized breast cancer diagnosis and prognosis from fine
-	needle aspirates.  
+	needle aspirates.
 	Archives of Surgery 1995;130:511-516.
 
-	W.H. Wolberg, W.N. Street, D.M. Heisey, and O.L. Mangasarian. 
+	W.H. Wolberg, W.N. Street, D.M. Heisey, and O.L. Mangasarian.
 	Computer-derived nuclear features distinguish malignant from
-	benign breast cytology.  
+	benign breast cytology.
 	Human Pathology, 26:792--796, 1995.
 
 See also:
@@ -71,7 +71,7 @@ Results:
 		Mean Texture.  Estimated accuracy 97.5% using repeated
 		10-fold crossvalidations.  Classifier has correctly
 		diagnosed 176 consecutive new patients as of November
-		1995. 
+		1995.
 
 4. Relevant information
 
@@ -102,7 +102,7 @@ Results:
 	ftp ftp.cs.wisc.edu
 	cd math-prog/cpo-dataset/machine-learn/WDBC/
 
-5. Number of instances: 569 
+5. Number of instances: 569
 
 6. Number of attributes: 32 (ID, diagnosis, 30 real-valued input features)
 
@@ -122,11 +122,11 @@ Ten real-valued features are computed for each cell nucleus:
 	f) compactness (perimeter^2 / area - 1.0)
 	g) concavity (severity of concave portions of the contour)
 	h) concave points (number of concave portions of the contour)
-	i) symmetry 
+	i) symmetry
 	j) fractal dimension ("coastline approximation" - 1)
 
 Several of the papers listed above contain detailed descriptions of
-how these features are computed. 
+how these features are computed.
 
 The mean, standard error, and "worst" or largest (mean of the three
 largest values) of these features were computed for each image,
