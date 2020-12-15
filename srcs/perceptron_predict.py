@@ -1,5 +1,8 @@
+from tools.DataPreprocessing import DataPreprocessing
+
+
 def run():
-    print(__name__)
+    DataPreprocessing()
 
 
 if __name__ == "__main__":
