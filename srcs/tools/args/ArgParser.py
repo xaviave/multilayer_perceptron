@@ -4,7 +4,7 @@ import argparse
 logging.getLogger().setLevel(logging.INFO)
 
 
-class ArgParser(argparse.ArgumentParser):
+class ArgParser:
     args: argparse.Namespace
 
     """

@@ -1,3 +1,4 @@
+import os
 import argparse
 
 
@@ -8,5 +9,8 @@ class FileCheckerAction(argparse.Action):
         super().__init__(option_strings, dest, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
-        print("%r %r %r" % (namespace, values, option_string))
+        if not os.path.exists(values) or os.path.splitext(values)[1] != ".csv":
+            raise ValueError(
+                f"File '{values}' does not exist or is in the wrong format (CSV)"
+            )
         setattr(namespace, self.dest, values)

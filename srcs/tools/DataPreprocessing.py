@@ -5,8 +5,9 @@ import sys
 import numpy as np
 import pandas as pd
 
-from tools.ArgParser import ArgParser
+from tools.args.ArgParser import ArgParser
 
+from tools.args.FileCheckerAction import FileCheckerAction
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -37,6 +38,7 @@ class DataPreprocessing(ArgParser):
             "-d",
             "--dataset_file",
             type=str,
+            action=FileCheckerAction,
             default=self.default_dataset_file,
             help=f"Provide dataset CSV file - Using '{self.default_dataset_file}' as default file",
         )
@@ -44,6 +46,7 @@ class DataPreprocessing(ArgParser):
             "-dh",
             "--dataset_header_file",
             type=str,
+            action=FileCheckerAction,
             default=self.default_dataset_header_file,
             help=f"Provide dataset header CSV file - Using '{self.default_dataset_header_file}' as default file",
         )
@@ -51,17 +54,6 @@ class DataPreprocessing(ArgParser):
     def _get_options(self):
         self.dataset_file = self.get_args("dataset_file")
         self.dataset_header_file = self.get_args("dataset_header_file")
-        if (
-            self.dataset_file is None
-            or self.dataset_header_file is None
-            or not os.path.exists(self.dataset_file)
-            or os.path.splitext(self.dataset_file)[1] != ".csv"
-            or not os.path.exists(self.dataset_header_file)
-            or os.path.splitext(self.dataset_header_file)[1] != ".csv"
-        ):
-            self._handle_error(
-                message="The file doesn't exist or is in the wrong format\nProvide a CSV file"
-            )
         if (
             self.dataset_file == self.default_dataset_file
             or self.dataset_header_file == self.default_dataset_header_file
