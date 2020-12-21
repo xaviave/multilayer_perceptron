@@ -1,4 +1,8 @@
+from srcs.tools.DataPreprocessing import DataPreprocessing
+
+
 def run():
+    data = DataPreprocessing()
     print(__name__)
 
 
