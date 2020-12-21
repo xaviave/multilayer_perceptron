@@ -17,16 +17,6 @@ def load_mnist_data(path: str) -> tuple:
     return imgs, labels
 
 
-def to_one_hot(y: int, k: int) -> np.array:
-    """
-    Convertit un entier en vecteur "one-hot".
-    to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
-    """
-    one_hot = np.zeros(k)
-    one_hot[y] = 1
-    return one_hot
-
-
 class Layer(Math):
     size: int
     input_size: int
@@ -66,6 +56,16 @@ class Network(Math):
     activations: list = []
     weighted_sums: list = []
 
+    @staticmethod
+    def to_one_hot(y: int, k: int) -> np.array:
+        """
+        Convertit un entier en vecteur "one-hot".
+        to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
+        """
+        one_hot = np.zeros(k)
+        one_hot[y] = 1
+        return one_hot
+
     def add_layer(self, size: int):
         """
         Create and Append a new layer with size (size: int) to the Neural Network
@@ -86,50 +86,6 @@ class Network(Math):
         """
         return a - target
 
-    #
-    # def backprop(self, x: np.ndarray, y: int):
-    #     """
-    #     A.  For every layers, calculate the Weighted Sum then the Activation Output
-    #     B.  Calculate the Output Error Delta (δ)
-    #     C.  Calculate every Layer's Delta by Backpropagation
-    #     D.  Inverse Delta list (last to first -> first to last)
-    #     E.  Calculate Weights and Bias Gradient's Matrices
-    #     """
-    #     activation = x
-    #     weighted_sums: list = []
-    #     activations: list = [activation]
-    #     # A
-    #     for layer in self.layers:
-    #         aggregation = layer.aggregation(activation)
-    #         weighted_sums.append(aggregation)
-    #         activation = layer.activation(aggregation)
-    #         activations.append(activation)
-    #     # B
-    #     target = to_one_hot(int(y), 10)
-    #     delta = self.get_output_delta(activations[-1], target)
-    #     deltas = [delta]
-    #     # C
-    #     nb_layers = len(self.layers)
-    #     for l in reversed(range(nb_layers - 1)):
-    #         layer = self.layers[l]
-    #         next_layer = self.layers[l + 1]
-    #         activation_prime = layer.activation_prime(weighted_sums[l])
-    #         delta = activation_prime * np.dot(next_layer.weights.T, delta)
-    #         deltas.append(delta)
-    #     # D
-    #     deltas = list(reversed(deltas))
-    #     # E
-    #     bias_gradient = []
-    #     weight_gradient = []
-    #     for l in range(len(self.layers)):
-    #         # Notez que l'indice des activations est « décalé », puisque
-    #         # activation[0] contient l'entrée (x), et pas l'activation de
-    #         # la première couche.
-    #         prev_activation = activations[l]
-    #         weight_gradient.append(np.outer(deltas[l], prev_activation))
-    #         bias_gradient.append(deltas[l])
-    #     return weight_gradient, bias_gradient
-
     def feedforward(self, x):
         self.activations = [x]
         self.weighted_sums = []
@@ -140,7 +96,7 @@ class Network(Math):
             self.activations.append(layer.activation(self.weighted_sums[-1]))
 
     def calcul_backpropagation(self, y):
-        delta = self.get_output_delta(self.activations[-1], to_one_hot(int(y), 10))
+        delta = self.get_output_delta(self.activations[-1], self.to_one_hot(int(y), 10))
         deltas = [delta]
 
         nb_layers = len(self.layers) - 2
@@ -168,28 +124,20 @@ class Network(Math):
         C. Update Weights and Bias Matrices
         """
         # A
-        weight_gradient = np.array(
-            [np.zeros(layer.weights.shape) for layer in self.layers]
-        )
-        bias_gradient = np.array(
-            [np.zeros(layer.biases.shape) for layer in self.layers]
-        )
+        weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
+        bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
         # B - 1
         for (x, y) in zip(X, Y):
             self.feedforward(x)
             self.calcul_backpropagation(y)
             new_weight_gradient, new_bias_gradient = self.apply_backpropagation()
-            weight_gradient += new_weight_gradient
-            bias_gradient += new_bias_gradient
+            for i in range(len(self.layers)):
+                weight_gradient[i] += new_weight_gradient[i]
+                bias_gradient[i] += new_bias_gradient[i]
 
-        avg_weight_gradient = [wg / Y.size for wg in weight_gradient]
-        avg_bias_gradient = [bg / Y.size for bg in bias_gradient]
-        # C
-        for layer, weight_gradient, bias_gradient in zip(
-            self.layers, avg_weight_gradient, avg_bias_gradient
-        ):
-            layer.update_weights(weight_gradient, learning_rate)
-            layer.update_biases(bias_gradient, learning_rate)
+        for layer, wg, bg in zip(self.layers, weight_gradient, bias_gradient):
+            layer.update_weights(wg / Y.size, learning_rate)
+            layer.update_biases(bg / Y.size, learning_rate)
 
     def train(
         self,
@@ -244,7 +192,7 @@ if __name__ == "__main__":
     perfs = []
     for i in range(1):
         start = datetime.datetime.now()
-        net.train(X_train, Y_train, steps=1, learning_rate=3)
+        net.train(X_train, Y_train, steps=1, learning_rate=1)
         accuracy = net.evaluate(X_test, Y_test)
         perfs.append(accuracy)
         tps.append(datetime.datetime.now() - start)
