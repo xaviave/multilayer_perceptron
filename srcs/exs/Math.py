@@ -41,7 +41,7 @@ class Math:
 
     @staticmethod
     def pre_activation(X, W, B):
-        return np.dot(X, W) + B
+        return np.dot(W, X) + B
 
     """
     ACTIVATION
