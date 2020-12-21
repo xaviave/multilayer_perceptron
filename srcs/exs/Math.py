@@ -28,7 +28,7 @@ class Math:
 
     def std(self, collection, count):
         mean = self.mean(collection, count)
-        v = sum([ np.power(e - mean, 2) for e in collection])
+        v = sum([np.power(e - mean, 2) for e in collection])
         return self.newton_sqrt(v / count)
 
     """
@@ -91,7 +91,11 @@ class Math:
 
     @staticmethod
     def cross_entropy(Y, Z):
-        return -1 / Z.shape([0]) * np.sum(np.dot(Y, np.log(Z)) + np.dot(1 - Y, np.log(1 - Z)))
+        return (
+            -1
+            / Z.shape([0])
+            * np.sum(np.dot(Y, np.log(Z)) + np.dot(1 - Y, np.log(1 - Z)))
+        )
 
     """
     OUTPUT

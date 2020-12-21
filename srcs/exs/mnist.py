@@ -17,14 +17,6 @@ def load_mnist_data(path: str) -> tuple:
     return imgs, labels
 
 
-def sigmoid(x: np.ndarray):
-    return 1.0 / (1.0 + np.exp(-x))
-
-
-def sigmoid_prime(x: np.ndarray):
-    return sigmoid(x) * (1.0 - sigmoid(x))
-
-
 def to_one_hot(y: int, k: int) -> np.array:
     """
     Convertit un entier en vecteur "one-hot".
@@ -115,7 +107,7 @@ class Network:
             activation = layer.activation(aggregation)
             activations.append(activation)
         # B
-        target = to_one_hot(int(y), 10)  # 10 neurons in output layer for each numbers
+        target = to_one_hot(int(y), 10)
         delta = self.get_output_delta(aggregations[-1], activations[-1], target)
         deltas = [delta]
         # C
@@ -124,7 +116,7 @@ class Network:
             layer = self.layers[l]
             next_layer = self.layers[l + 1]
             activation_prime = layer.activation_prime(aggregations[l])
-            delta = activation_prime * np.dot(next_layer.weights.transpose(), delta)
+            delta = activation_prime * np.dot(next_layer.weights.T, delta)
             deltas.append(delta)
         # D
         deltas = list(reversed(deltas))
@@ -218,10 +210,13 @@ if __name__ == "__main__":
     net = Network(input_dim=784)
     net.add_layer(200)
     net.add_layer(10)
+    tps = []
+    perfs = []
     for i in range(1):
         start = datetime.datetime.now()
         net.train(X_train, Y_train, steps=1, learning_rate=1)
         accuracy = net.evaluate(X_test, Y_test)
-        print(
-            f"Nouvelle performance : {accuracy * 100.0}% | time: {datetime.datetime.now() - start}"
-        )
+        perfs.append(accuracy)
+        tps.append(datetime.datetime.now() - start)
+        print(f"Nouvelle performance : {perfs[-1] * 100}% | time: {tps[-1]}")
+    print(f"Mean perf : {np.mean(perfs) * 100}% | time: {np.mean(tps)}")
