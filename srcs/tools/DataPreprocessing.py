@@ -94,6 +94,7 @@ class DataPreprocessing(ArgParser):
         super().__init__(prog=self.prog_name)
         self.df_dataset = self._get_csv_file(self.dataset_file)
         self.header = np.array(self._get_csv_file(self.dataset_header_file).columns)
+        self.df_dataset.columns = self.header
         print(self)
 
     def __str__(self):
@@ -110,6 +111,7 @@ Models path: {self.model_path}
 
     - Statistic info:
 {self.df_dataset.describe()}
+{self.df_dataset.head()}
 {'=' * 70}
 """
 
