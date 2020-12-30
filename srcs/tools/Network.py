@@ -1,4 +1,5 @@
 import logging
+import datetime
 
 import numpy as np
 
@@ -9,14 +10,15 @@ from sklearn.utils import shuffle
 
 
 class Network(Math):
+    input_dim: int
     deltas: list
     layers: list
-    input_dim: int
+    times: list = []
     activations: list = []
     weighted_sums: list = []
 
     @staticmethod
-    def to_one_hot(y: int, k: int) -> np.array:
+    def _to_one_hot(y: int, k: int) -> np.array:
         """
         Convertit un entier en vecteur "one-hot".
         to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
@@ -25,7 +27,7 @@ class Network(Math):
         one_hot[y] = 1
         return one_hot
 
-    def add_layer(self, size: int):
+    def _add_layer(self, size: int):
         """
         Create and Append a new layer with size (size: int) to the Neural Network
         """
@@ -34,9 +36,13 @@ class Network(Math):
         )
         self.layers.append(Layer(size, input_layer_dim))
 
-    def __init__(self, input_dim: int):
+    def __init__(self, input_dim: int, layers_size: list):
         self.layers = []
         self.input_dim = input_dim
+        for s in layers_size:
+            self._add_layer(s)
+        self.layers[-1].activation = self.soft_max
+
 
     # Cf http://neuralnetworksanddeeplearning.com/chap3.html#the_cross-entropy_cost_function
     def get_output_delta(self, a, target):
@@ -55,15 +61,15 @@ class Network(Math):
             self.activations.append(layer.activation(self.weighted_sums[-1]))
 
     def calcul_backpropagation(self, y):
-        delta = self.get_output_delta(self.activations[-1], self.to_one_hot(int(y), 10))
+        delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 10))
         deltas = [delta]
 
         nb_layers = len(self.layers) - 2
         for i in range(nb_layers, -1, -1):
             layer = self.layers[i]
-            next_layer = self.layers[i - 1]
+            next_layer = self.layers[i + 1]
             activation_prime = layer.activation_prime(self.weighted_sums[i])
-            deltas.append(activation_prime * np.dot(next_layer.weights.T, delta))
+            deltas.append(activation_prime * np.dot(next_layer.weights.T, deltas[-1]))
         self.deltas = list(reversed(deltas))
 
     def apply_backpropagation(self):
@@ -102,16 +108,16 @@ class Network(Math):
         self,
         X: np.ndarray,
         Y: np.ndarray,
-        steps: int = 30,
+        epochs: int = 30,
         learning_rate: float = 0.3,
         batch_size: int = 10,
     ):
         """
         Create (batch_size) number of random batch data
         """
-        self.layers[-1].activation = self.soft_max
         n = Y.size
-        for _ in range(steps):
+        for e in range(epochs):
+            start = datetime.datetime.now()
             X, Y = shuffle(X, Y)
             for batch_start in range(0, n, batch_size):
                 X_batch, Y_batch = (
@@ -119,6 +125,9 @@ class Network(Math):
                     Y[batch_start : batch_start + batch_size],
                 )
                 self.train_batch(X_batch, Y_batch, learning_rate)
+            self.times.append(datetime.datetime.now() - start)
+            logging.warning(f"epoch {e}/{epochs} - loss: {'ue'} - val_loss {'ue'} - time: {self.times[-1]}")
+
 
     """
     Predict

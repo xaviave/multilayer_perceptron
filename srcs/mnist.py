@@ -24,14 +24,12 @@ if __name__ == "__main__":
     X_train, Y_train = load_mnist_data(data_path + "mnist_train.csv")
     X_test, Y_test = load_mnist_data(data_path + "mnist_test.csv")
     logging.warning(f"data loaded: {datetime.datetime.now() - start}")
-    net = Network(input_dim=784)
-    net.add_layer(200)
-    net.add_layer(10)
+    net = Network(input_dim=784, layers_size=[200, 10])
     tps = []
     perfs = []
     for i in range(1):
         start = datetime.datetime.now()
-        net.train(X_train, Y_train, steps=1, learning_rate=1)
+        net.train(X_train, Y_train, epochs=1, learning_rate=1)
         accuracy = net.evaluate(X_test, Y_test)
         perfs.append(accuracy)
         tps.append(datetime.datetime.now() - start)
