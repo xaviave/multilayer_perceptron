@@ -1,10 +1,11 @@
+import logging
+
 import numpy as np
 
 from tools.Math import Math
 from tools.Layer import Layer
 
 from sklearn.utils import shuffle
-
 
 
 class Network(Math):
@@ -108,6 +109,7 @@ class Network(Math):
         """
         Create (batch_size) number of random batch data
         """
+        self.layers[-1].activation = self.soft_max
         n = Y.size
         for _ in range(steps):
             X, Y = shuffle(X, Y)
@@ -135,4 +137,3 @@ class Network(Math):
         results = [1 if self.predict(x) == y else 0 for (x, y) in zip(X, Y)]
         accuracy = sum(results) / len(results)
         return accuracy
-

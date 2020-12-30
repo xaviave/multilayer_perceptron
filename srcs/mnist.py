@@ -1,3 +1,4 @@
+import logging
 import datetime
 
 import numpy as np
@@ -22,7 +23,7 @@ if __name__ == "__main__":
     data_path = "data/datasets/mnist/"
     X_train, Y_train = load_mnist_data(data_path + "mnist_train.csv")
     X_test, Y_test = load_mnist_data(data_path + "mnist_test.csv")
-    print(f"data loaded: {datetime.datetime.now() - start}")
+    logging.warning(f"data loaded: {datetime.datetime.now() - start}")
     net = Network(input_dim=784)
     net.add_layer(200)
     net.add_layer(10)
@@ -34,5 +35,5 @@ if __name__ == "__main__":
         accuracy = net.evaluate(X_test, Y_test)
         perfs.append(accuracy)
         tps.append(datetime.datetime.now() - start)
-        print(f"Nouvelle performance : {perfs[-1] * 100}% | time: {tps[-1]}")
-    print(f"Mean perf : {np.mean(perfs) * 100}% | time: {np.mean(tps)}")
+        logging.warning(f"Nouvelle performance : {perfs[-1] * 100}% | time: {tps[-1]}")
+    logging.warning(f"Mean perf : {np.mean(perfs) * 100}% | time: {np.mean(tps)}")
