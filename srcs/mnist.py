@@ -29,9 +29,11 @@ if __name__ == "__main__":
     perfs = []
     for i in range(1):
         start = datetime.datetime.now()
-        net.train(X_train, Y_train, epochs=1, learning_rate=1)
+        net.train(X_train, Y_train, epochs=5, learning_rate=1)
         accuracy = net.evaluate(X_test, Y_test)
         perfs.append(accuracy)
         tps.append(datetime.datetime.now() - start)
-        logging.warning(f"Nouvelle performance : {perfs[-1] * 100}% | time: {tps[-1]}")
-    logging.warning(f"Mean perf : {np.mean(perfs) * 100}% | time: {np.mean(tps)}")
+        logging.warning(f"New Perf: {perfs[-1] * 100}% | time: {net.times[-1]}")
+    logging.warning(
+        f"Mean perf : {np.mean(perfs) * 100}% | mean time: {np.mean(net.times)}"
+    )

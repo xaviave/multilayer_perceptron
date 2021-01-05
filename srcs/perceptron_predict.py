@@ -1,22 +1,15 @@
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-from tools.DataPreprocessing import DataPreprocessing
-
-
-def visualize(data):
-    size_mapping = {"B": 0, "M": 1}
-    data.df_dataset["diagnosis"] = data.df_dataset["diagnosis"].map(size_mapping)
-    # sns.set_theme(style="ticks")
-    # sns.pairplot(data.df_dataset, hue="diagnosis")
-    # plt.savefig('line_plot.pdf')
-    # # plt.show()
+from tools.Network import Network
 
 
 def run():
-    data = DataPreprocessing()
-    visualize(data)
+    nn = Network(input_dim=784, layers_size=[200, 10])
+    nn.train(epochs=1, learning_rate=1)
+    nn.save_model()
 
+    print(nn.evaluate())
+    nn.layers = []
+    nn.load_model()
+    print(nn.evaluate())
 
 if __name__ == "__main__":
     run()

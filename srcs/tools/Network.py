@@ -5,17 +5,19 @@ import numpy as np
 
 from tools.Math import Math
 from tools.Layer import Layer
+from tools.DataPreprocessing import DataPreprocessing
 
 from sklearn.utils import shuffle
 
 
-class Network(Math):
+class Network(Math, DataPreprocessing):
     input_dim: int
     deltas: list
     layers: list
     times: list = []
     activations: list = []
     weighted_sums: list = []
+    default_model_file: str = "data/models/default_model"
 
     @staticmethod
     def _to_one_hot(y: int, k: int) -> np.array:
@@ -39,15 +41,17 @@ class Network(Math):
     def __init__(self, input_dim: int, layers_size: list):
         self.layers = []
         self.input_dim = input_dim
+        self.layers_size = layers_size
         for s in layers_size:
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
-
+        super().__init__()
+        self.mnist_preprocess()
 
     # Cf http://neuralnetworksanddeeplearning.com/chap3.html#the_cross-entropy_cost_function
     def get_output_delta(self, a, target):
         """
-        Output Error Delta
+        Output Error Delta2
         """
         return a - target
 
@@ -55,13 +59,16 @@ class Network(Math):
         self.activations = [x]
         self.weighted_sums = []
         for layer in self.layers:
+            # print(self.activations[-1].shape, layer.weights.shape, layer.biases.shape)
             self.weighted_sums.append(
                 self.pre_activation(self.activations[-1], layer.weights, layer.biases)
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
 
     def calcul_backpropagation(self, y):
-        delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 10))
+        delta = self.get_output_delta(
+            self.activations[-1], self._to_one_hot(int(y), 10)
+        )
         deltas = [delta]
 
         nb_layers = len(self.layers) - 2
@@ -106,8 +113,6 @@ class Network(Math):
 
     def train(
         self,
-        X: np.ndarray,
-        Y: np.ndarray,
         epochs: int = 30,
         learning_rate: float = 0.3,
         batch_size: int = 10,
@@ -115,10 +120,10 @@ class Network(Math):
         """
         Create (batch_size) number of random batch data
         """
-        n = Y.size
+        n = self.Y.size
         for e in range(epochs):
             start = datetime.datetime.now()
-            X, Y = shuffle(X, Y)
+            X, Y = shuffle(self.X, self.Y)
             for batch_start in range(0, n, batch_size):
                 X_batch, Y_batch = (
                     X[batch_start : batch_start + batch_size],
@@ -126,8 +131,10 @@ class Network(Math):
                 )
                 self.train_batch(X_batch, Y_batch, learning_rate)
             self.times.append(datetime.datetime.now() - start)
-            logging.warning(f"epoch {e}/{epochs} - loss: {'ue'} - val_loss {'ue'} - time: {self.times[-1]}")
-
+            predicted = np.array([self.predict(x) for x in X])
+            logging.warning(
+                f"epoch {e + 1}/{epochs} - loss: {self.mean_squared(Y, predicted)} - val_loss {np.where(predicted == Y)[0].shape[0] / predicted.shape[0]} - time: {self.times[-1]}"
+            )
 
     """
     Predict
@@ -142,7 +149,26 @@ class Network(Math):
     def predict(self, input_data):
         return np.argmax(self.predict_feedforward(input_data))
 
-    def evaluate(self, X: np.ndarray, Y: np.ndarray):
-        results = [1 if self.predict(x) == y else 0 for (x, y) in zip(X, Y)]
+    def evaluate(self):
+        results = [
+            1 if self.predict(x) == y else 0 for (x, y) in zip(self.X_test, self.Y_test)
+        ]
         accuracy = sum(results) / len(results)
         return accuracy
+
+    """
+    File Handling Method
+    """
+
+    def save_model(self, model_file: str = default_model_file):
+        model = [(self.input_dim, self.layers_size)]
+        model.extend([(l.weights.tolist(), l.biases.tolist()) for l in self.layers])
+        self._save_npy(model_file, model)
+
+    def load_model(self, model_file: str = default_model_file):
+        raw_model = self._load_npy(f"{model_file}.npy")
+        self.input_dim = raw_model[0][0]
+        for i, n in enumerate(raw_model[0][1]):
+            self._add_layer(n)
+            self.layers[-1].weights = np.array(raw_model[i+1][0])
+            self.layers[-1].biases = np.array(raw_model[i+1][1])
