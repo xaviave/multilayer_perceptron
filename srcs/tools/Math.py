@@ -60,12 +60,11 @@ class Math:
         return (np.exp(z) - np.exp(-z)) / (np.exp(z) + np.exp(-z))
 
     @staticmethod
-    def leaky_relu(z, alpha):
-        z[z < alpha] = alpha
-        return z
+    def leaky_relu(z):
+        return np.array([max(0.2, zi) for zi in z])
 
     def relu(self, z):
-        return self.leaky_relu(z, 0)
+        return np.array([max(0, zi) for zi in z])
 
     """
     DERIVATIVE
@@ -78,12 +77,11 @@ class Math:
         return 1 - np.power(self.tanh(z), 2)
 
     @staticmethod
-    def d_leakyrelu(z, alpha):
-        return np.where(z > 0, 1, alpha)
-        # return 1 if z > 0 else alpha
+    def d_leaky_relu(z):
+        return np.array([1 if zi > 0 else 0.2 for zi in z])
 
     def d_relu(self, z):
-        return self.d_leakyrelu(z, 0)
+        return np.array([1 if zi > 0 else 0 for zi in z])
 
     """
     ERROR
