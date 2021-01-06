@@ -44,7 +44,19 @@ class Math:
         return (X - np.min(X)) / (np.max(X) - np.min(X))
 
     @staticmethod
-    def pre_activation(X, W, B):
+    def _nesterov_momentum_gradient(X, W, B):
+        pass
+
+    @staticmethod
+    def _rmsprop(X, W, B):
+        pass
+
+    @staticmethod
+    def _adam(X, W, B):
+        pass
+
+    @staticmethod
+    def _gradient_descent(X, W, B):
         return np.dot(W, X) + B
 
     """
