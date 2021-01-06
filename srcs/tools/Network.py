@@ -22,8 +22,7 @@ class Network(DataPreprocessing):
     weighted_sums: list = []
     default_model_file: str = "data/models/default_model"
 
-    def _add_exclusive_args(self, parser):
-        super()._add_exclusive_args(parser)
+    def _gradient_func_arg(self, parser):
         gradient_group = parser.add_mutually_exclusive_group(required=False)
         gradient_group.add_argument(
             "-gd",
@@ -57,6 +56,10 @@ class Network(DataPreprocessing):
             help="Use nesterov momentum gradient descent as optimisation algorithm",
             dest="type_gradient",
         )
+
+    def _add_exclusive_args(self, parser):
+        super()._add_exclusive_args(parser)
+        self._gradient_func_arg(parser)
 
     @staticmethod
     def _to_one_hot(y: int, k: int) -> np.array:
