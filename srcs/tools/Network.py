@@ -22,6 +22,45 @@ class Network(DataPreprocessing):
     weighted_sums: list = []
     default_model_file: str = "data/models/default_model"
 
+    def _gradient_func_arg(self, parser):
+        gradient_group = parser.add_mutually_exclusive_group(required=False)
+        gradient_group.add_argument(
+            "-gd",
+            "--gradient_descent",
+            action="store_const",
+            const=self._gradient_descent,
+            help="Use gradient descent as optimisation algorithm (default value)",
+            dest="type_gradient",
+        )
+        gradient_group.add_argument(
+            "-rg",
+            "--rms",
+            action="store_const",
+            const=self._rmsprop,
+            help="Use RMSprop gradient descent as optimisation algorithm",
+            dest="type_gradient",
+        )
+        gradient_group.add_argument(
+            "-ag",
+            "--adam",
+            action="store_const",
+            const=self._adam,
+            help="Use Adam gradient descent as optimisation algorithm",
+            dest="type_gradient",
+        )
+        gradient_group.add_argument(
+            "-nmg",
+            "--nesterov_momentum",
+            action="store_const",
+            const=self._nesterov_momentum_gradient,
+            help="Use nesterov momentum gradient descent as optimisation algorithm",
+            dest="type_gradient",
+        )
+
+    def _add_exclusive_args(self, parser):
+        super()._add_exclusive_args(parser)
+        self._gradient_func_arg(parser)
+
     @staticmethod
     def _to_one_hot(y: int, k: int) -> np.array:
         """
@@ -39,7 +78,9 @@ class Network(DataPreprocessing):
         input_layer_dim = (
             self.layers[-1].size if len(self.layers) > 0 else self.input_dim
         )
-        self.layers.append(Layer(size, input_layer_dim))
+        self.layers.append(
+            Layer(size, input_layer_dim, pre_activation=self.gradient_func)
+        )
 
     def _init_layers(self, input_dim, layers_size):
         self.input_dim = input_dim
@@ -50,10 +91,14 @@ class Network(DataPreprocessing):
 
     def __init__(self, input_dim: int = None, layers_size: list = None):
         self.layers = []
-        if input_dim and layers_size:
-            self._init_layers(input_dim, layers_size)
         super().__init__()
         self.wbdc_preprocess()
+
+        self.gradient_func = self.get_args(
+            "type_gradient", default_value=self._gradient_descent
+        )
+        if input_dim and layers_size:
+            self._init_layers(input_dim, layers_size)
 
     def _visualize(self, epochs):
         plt.subplot(1, 2, 1)
@@ -70,7 +115,7 @@ class Network(DataPreprocessing):
         self.weighted_sums = []
         for layer in self.layers:
             self.weighted_sums.append(
-                self.pre_activation(self.activations[-1], layer.weights, layer.biases)
+                self.gradient_func(self.activations[-1], layer.weights, layer.biases)
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
         self.predicted.append(self.activations[-1])
