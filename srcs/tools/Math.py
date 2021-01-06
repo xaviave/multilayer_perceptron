@@ -95,10 +95,7 @@ class Math:
 
     @staticmethod
     def cross_entropy(Y, Z):
-        a = -(1 / Z.shape[0])
-        b = np.dot(np.log(Z), Y.T)
-        c = np.dot(np.log(1 - Z), (1 - Y).T)
-        return a * b + c
+        return -(1.0 / Z.shape[0]) * np.sum(Y * np.log(Z) + (1 - Y) * np.log(1 - Z))
 
     """
     OUTPUT

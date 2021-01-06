@@ -19,22 +19,16 @@ class DataPreprocessing(ArgParser, Math):
     Y: np.ndarray
     X_test: np.ndarray
     Y_test: np.ndarray
-    # header: np.array
     df_dataset_test: pd.DataFrame
     df_dataset_train: pd.DataFrame
 
     data_path: str = "data"
     dataset_test_file: str = None
     dataset_train_file: str = None
-    # dataset_header_file: str = None
     prog_name: str = "Multilayer Perceptron"
     model_path: str = os.path.join(data_path, "models")
     dataset_path: str = os.path.join(data_path, "datasets")
-    # header_path: str = dataset_path
     default_dataset_file: str = os.path.join(dataset_path, "default_dataset.csv")
-    # default_dataset_header_file: str = os.path.join(
-    #     dataset_path, "default_header_dataset.csv"
-    # )
 
     """
     Override Methods
@@ -58,23 +52,21 @@ class DataPreprocessing(ArgParser, Math):
             default=self.default_dataset_file,
             help=f"Provide dataset CSV file - Using '{self.default_dataset_file}' as default test file",
         )
-        # parser.add_argument(
-        #     "-dh",
-        #     "--dataset_header_file",
-        #     type=str,
-        #     action=FileCheckerAction,
-        #     default=self.default_dataset_header_file,
-        #     help=f"Provide dataset header CSV file - Using '{self.default_dataset_header_file}' as default file",
-        # )
+        parser.add_argument(
+            "-s",
+            "--split_train",
+            type=int,
+            default=0,
+            help=f"Split train dataset by X to create a test dataset\nIf provided, override '-dt' option",
+        )
 
     def _get_options(self):
+        self.split = self.get_args("split_train")
         self.dataset_test_file = self.get_args("dataset_test_file")
         self.dataset_train_file = self.get_args("dataset_train_file")
-        # self.dataset_header_file = self.get_args("dataset_header_file")
         if (
             self.dataset_test_file == self.default_dataset_file
             or self.dataset_train_file == self.default_dataset_file
-            # or self.dataset_header_file == self.default_dataset_header_file
         ):
             logging.info("Using default dataset CSV file")
 
@@ -112,10 +104,13 @@ class DataPreprocessing(ArgParser, Math):
 
     def __init__(self):
         super().__init__(prog=self.prog_name)
-        self.df_dataset_test = self._get_csv_file(self.dataset_test_file)
         self.df_dataset_train = self._get_csv_file(self.dataset_train_file)
-        # self.header = np.array(self._get_csv_file(self.dataset_header_file).columns)
-        # self.df_dataset.columns = self.header
+        if 0 < self.split < 100:
+            self.split = int(len(self.df_dataset_train.index) * (self.split / 100))
+            self.df_dataset_test = self.df_dataset_train[self.split :]
+            self.df_dataset_train = self.df_dataset_train[: self.split]
+        else:
+            self.df_dataset_test = self._get_csv_file(self.dataset_test_file)
 
     def __str__(self):
         return f"""
@@ -158,7 +153,6 @@ Models path: {self.model_path}
         self.X_test, self.Y_test = self.df_to_np(self.df_dataset_test)
 
     def wbdc_preprocess(self):
-        logging.warning(f"Separate train data to 2 datasets test/train")
         self.Y = np.where(self.df_dataset_train.pop(1) == "M", 0, 1)
         del self.df_dataset_train[0]
         self.X = self.normalize(self.df_dataset_train.to_numpy())

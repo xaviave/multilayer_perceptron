@@ -2,8 +2,8 @@ import logging
 import datetime
 
 import numpy as np
+import matplotlib.pyplot as plt
 
-from tools.Math import Math
 from tools.Layer import Layer
 from tools.DataPreprocessing import DataPreprocessing
 
@@ -14,7 +14,10 @@ class Network(DataPreprocessing):
     input_dim: int
     deltas: list
     layers: list
+    loss: list = []
+    val_loss: list = []
     times: list = []
+    predicted: list = []
     activations: list = []
     weighted_sums: list = []
     default_model_file: str = "data/models/default_model"
@@ -38,37 +41,42 @@ class Network(DataPreprocessing):
         )
         self.layers.append(Layer(size, input_layer_dim))
 
-    def __init__(self, input_dim: int, layers_size: list):
-        self.layers = []
+    def _init_layers(self, input_dim, layers_size):
         self.input_dim = input_dim
         self.layers_size = layers_size
         for s in layers_size:
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
+
+    def __init__(self, input_dim: int = None, layers_size: list = None):
+        self.layers = []
+        if input_dim and layers_size:
+            self._init_layers(input_dim, layers_size)
         super().__init__()
         self.wbdc_preprocess()
 
-    # Cf http://neuralnetworksanddeeplearning.com/chap3.html#the_cross-entropy_cost_function
+    def _visualize(self, epochs):
+        plt.subplot(1, 2, 1)
+        plt.plot(range(epochs), self.loss, c="r")
+        plt.subplot(1, 2, 2)
+        plt.plot(range(epochs), self.val_loss, c="b")
+        plt.show()
+
     def get_output_delta(self, a, target):
-        """
-        Output Error Delta2
-        """
         return a - target
 
     def feedforward(self, x):
         self.activations = [x]
         self.weighted_sums = []
         for layer in self.layers:
-            # print(self.activations[-1].shape, layer.weights.shape, layer.biases.shape)
             self.weighted_sums.append(
                 self.pre_activation(self.activations[-1], layer.weights, layer.biases)
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
+        self.predicted.append(self.activations[-1])
 
     def calcul_backpropagation(self, y):
-        delta = self.get_output_delta(
-            self.activations[-1], self._to_one_hot(int(y), 2)
-        )
+        delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))
         deltas = [delta]
 
         nb_layers = len(self.layers) - 2
@@ -86,19 +94,11 @@ class Network(DataPreprocessing):
             prev_activation = self.activations[i]
             weight_gradient.append(np.outer(self.deltas[i], prev_activation))
             bias_gradient.append(self.deltas[i])
-        return weight_gradient, biasgradient
+        return weight_gradient, bias_gradient
 
     def train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
-        """
-        A. Init the weight and bias gradient's matrices
-        B. [Weighted Sum]   1. Launch Backpropagation adding up every resulting Weight and Bias Matrices
-                            2. Mean of every Weight and Bias Matrices
-        C. Update Weights and Bias Matrices
-        """
-        # A
         weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
         bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
-        # B - 1
         for (x, y) in zip(X, Y):
             self.feedforward(x)
             self.calcul_backpropagation(y)
@@ -122,19 +122,26 @@ class Network(DataPreprocessing):
         """
         n = self.Y.size
         for e in range(epochs):
+            self.predicted = []
             start = datetime.datetime.now()
             X, Y = shuffle(self.X, self.Y)
+            cross_y = np.array([self._to_one_hot(y, 2) for y in Y])
             for batch_start in range(0, n, batch_size):
                 X_batch, Y_batch = (
                     X[batch_start : batch_start + batch_size],
                     Y[batch_start : batch_start + batch_size],
                 )
                 self.train_batch(X_batch, Y_batch, learning_rate)
+            self.loss.append(self.cross_entropy(cross_y, np.array(self.predicted)))
             self.times.append(datetime.datetime.now() - start)
             predicted = np.array([self.predict(x) for x in X])
-            logging.warning(
-                f"epoch {e + 1}/{epochs} - loss: {self.mean_squared(Y, predicted)} - val_loss {np.where(predicted == Y)[0].shape[0] / predicted.shape[0]} - time: {self.times[-1]}"
+            self.val_loss.append(
+                np.where(predicted == Y)[0].shape[0] / predicted.shape[0]
             )
+            logging.info(
+                f"epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
+            )
+        self._visualize(epochs)
 
     """
     Predict
@@ -167,8 +174,9 @@ class Network(DataPreprocessing):
 
     def load_model(self, model_file: str = default_model_file):
         raw_model = self._load_npy(f"{model_file}.npy")
-        self.input_dim = raw_model[0][0]
-        for i, n in enumerate(raw_model[0][1]):
-            self._add_layer(n)
+        input_dim = raw_model[0][0]
+        layers_size = [l for l in raw_model[0][1]]
+        self._init_layers(input_dim, layers_size)
+        for i in range(len(raw_model[0][1])):
             self.layers[-1].weights = np.array(raw_model[i + 1][0])
             self.layers[-1].biases = np.array(raw_model[i + 1][1])

@@ -2,12 +2,8 @@ from tools.Network import Network
 
 
 def run():
-    nn = Network(input_dim=784, layers_size=[200, 10])
-    nn.train(epochs=1, learning_rate=1)
-    nn.save_model()
-
-    print(nn.evaluate())
-    nn.layers = []
+    print("a refaire ca marche po")
+    nn = Network()
     nn.load_model()
     print(nn.evaluate())
 
