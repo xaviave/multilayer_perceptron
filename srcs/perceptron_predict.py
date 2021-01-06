@@ -11,5 +11,6 @@ def run():
     nn.load_model()
     print(nn.evaluate())
 
+
 if __name__ == "__main__":
     run()

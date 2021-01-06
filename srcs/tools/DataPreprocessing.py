@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 
+from tools.Math import Math
 from tools.args.ArgParser import ArgParser
 
 from tools.args.FileCheckerAction import FileCheckerAction
@@ -13,7 +14,7 @@ from tools.args.FileCheckerAction import FileCheckerAction
 logging.getLogger().setLevel(logging.INFO)
 
 
-class DataPreprocessing(ArgParser):
+class DataPreprocessing(ArgParser, Math):
     X: np.ndarray
     Y: np.ndarray
     X_test: np.ndarray
@@ -155,3 +156,11 @@ Models path: {self.model_path}
         np.random.shuffle(self.df_dataset_train.values)
         self.X, self.Y = self.df_to_np(self.df_dataset_train)
         self.X_test, self.Y_test = self.df_to_np(self.df_dataset_test)
+
+    def wbdc_preprocess(self):
+        logging.warning(f"Separate train data to 2 datasets test/train")
+        self.Y = np.where(self.df_dataset_train.pop(1) == "M", 0, 1)
+        del self.df_dataset_train[0]
+        self.X = self.normalize(self.df_dataset_train.to_numpy())
+        self.X_test = self.X
+        self.Y_test = self.Y

@@ -36,13 +36,16 @@ class Math:
     """
 
     @staticmethod
-    def standardize(X, mean, std):
-        return (X - mean) / std
+    def standardize(X):
+        return (X - np.mean(X)) / np.std(X)
+
+    @staticmethod
+    def normalize(X):
+        return (X - np.min(X)) / (np.max(X) - np.min(X))
 
     @staticmethod
     def pre_activation(X, W, B):
-        a = np.dot(W, X)
-        return a + B
+        return np.dot(W, X) + B
 
     """
     ACTIVATION

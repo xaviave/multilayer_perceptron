@@ -10,7 +10,7 @@ from tools.DataPreprocessing import DataPreprocessing
 from sklearn.utils import shuffle
 
 
-class Network(Math, DataPreprocessing):
+class Network(DataPreprocessing):
     input_dim: int
     deltas: list
     layers: list
@@ -46,7 +46,7 @@ class Network(Math, DataPreprocessing):
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
         super().__init__()
-        self.mnist_preprocess()
+        self.wbdc_preprocess()
 
     # Cf http://neuralnetworksanddeeplearning.com/chap3.html#the_cross-entropy_cost_function
     def get_output_delta(self, a, target):
@@ -67,7 +67,7 @@ class Network(Math, DataPreprocessing):
 
     def calcul_backpropagation(self, y):
         delta = self.get_output_delta(
-            self.activations[-1], self._to_one_hot(int(y), 10)
+            self.activations[-1], self._to_one_hot(int(y), 2)
         )
         deltas = [delta]
 
@@ -86,7 +86,7 @@ class Network(Math, DataPreprocessing):
             prev_activation = self.activations[i]
             weight_gradient.append(np.outer(self.deltas[i], prev_activation))
             bias_gradient.append(self.deltas[i])
-        return weight_gradient, bias_gradient
+        return weight_gradient, biasgradient
 
     def train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
         """
@@ -170,5 +170,5 @@ class Network(Math, DataPreprocessing):
         self.input_dim = raw_model[0][0]
         for i, n in enumerate(raw_model[0][1]):
             self._add_layer(n)
-            self.layers[-1].weights = np.array(raw_model[i+1][0])
-            self.layers[-1].biases = np.array(raw_model[i+1][1])
+            self.layers[-1].weights = np.array(raw_model[i + 1][0])
+            self.layers[-1].biases = np.array(raw_model[i + 1][1])
