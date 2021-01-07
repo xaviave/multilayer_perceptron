@@ -47,21 +47,6 @@ class Math:
     def _gradient_descent(X, W, B):
         return np.dot(W, X) + B
 
-    @staticmethod
-    def _nesterov_momentum_gradient(X, W, B):
-        pass
-
-    def _rprop(self, lr):
-        return lr
-
-    @staticmethod
-    def _rmsprop(X, W, B):
-        pass
-
-    @staticmethod
-    def _adam(X, W, B):
-        pass
-
     """
     ACTIVATION
     """
