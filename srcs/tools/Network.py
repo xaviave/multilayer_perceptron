@@ -58,8 +58,8 @@ class Network(DataPreprocessing):
         )
 
     def _activation_func_arg(self, parser):
-        gradient_group = parser.add_mutually_exclusive_group(required=False)
-        parser.add_argument(
+        activation_group = parser.add_mutually_exclusive_group(required=False)
+        activation_group.add_argument(
             "-sac",
             "--sigmoid",
             action="store_const",
@@ -67,7 +67,7 @@ class Network(DataPreprocessing):
             help="Use sigmoid as activation function (default value)",
             dest="type_activation",
         )
-        parser.add_argument(
+        activation_group.add_argument(
             "-tac",
             "--tanh",
             action="store_const",
@@ -75,7 +75,7 @@ class Network(DataPreprocessing):
             help="Use tanh as activation function",
             dest="type_activation",
         )
-        parser.add_argument(
+        activation_group.add_argument(
             "-rac",
             "--relu",
             action="store_const",
