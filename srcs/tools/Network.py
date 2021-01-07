@@ -57,9 +57,37 @@ class Network(DataPreprocessing):
             dest="type_gradient",
         )
 
+    def _activation_func_arg(self, parser):
+        gradient_group = parser.add_mutually_exclusive_group(required=False)
+        parser.add_argument(
+            "-sac",
+            "--sigmoid",
+            action="store_const",
+            const={"activation": self.sigmoid, "derivative": self.d_sigmoid},
+            help="Use sigmoid as activation function (default value)",
+            dest="type_activation",
+        )
+        parser.add_argument(
+            "-tac",
+            "--tanh",
+            action="store_const",
+            const={"activation": self.tanh, "derivative": self.d_tanh},
+            help="Use tanh as activation function",
+            dest="type_activation",
+        )
+        parser.add_argument(
+            "-rac",
+            "--relu",
+            action="store_const",
+            const={"activation": self.relu, "derivative": self.d_relu},
+            help="Use relu as activation function",
+            dest="type_activation",
+        )
+
     def _add_exclusive_args(self, parser):
         super()._add_exclusive_args(parser)
         self._gradient_func_arg(parser)
+        self._activation_func_arg(parser)
 
     @staticmethod
     def _to_one_hot(y: int, k: int) -> np.array:
@@ -79,7 +107,13 @@ class Network(DataPreprocessing):
             self.layers[-1].size if len(self.layers) > 0 else self.input_dim
         )
         self.layers.append(
-            Layer(size, input_layer_dim, pre_activation=self.gradient_func)
+            Layer(
+                size,
+                input_layer_dim,
+                pre_activation=self.gradient_func,
+                activation=self.activation_func,
+                derivative=self.derivative,
+            )
         )
 
     def _init_layers(self, input_dim, layers_size):
@@ -97,6 +131,10 @@ class Network(DataPreprocessing):
         self.gradient_func = self.get_args(
             "type_gradient", default_value=self._gradient_descent
         )
+        self.activation_func, self.derivative = self.get_args(
+            "type_activation",
+            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
+        ).values()
         if input_dim and layers_size:
             self._init_layers(input_dim, layers_size)
 
