@@ -3,6 +3,7 @@ import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from tabulate import tabulate
 
 from tools.Layer import Layer
@@ -39,14 +40,6 @@ class Network(DataPreprocessing):
             help="Use tanh as activation function",
             dest="type_activation",
         )
-        activation_group.add_argument(
-            "-rac",
-            "--relu",
-            action="store_const",
-            const={"activation": self.relu, "derivative": self.d_relu},
-            help="Use relu as activation function",
-            dest="type_activation",
-        )
 
     def _add_exclusive_args(self, parser):
         super()._add_exclusive_args(parser)
@@ -56,7 +49,7 @@ class Network(DataPreprocessing):
             action="store_const",
             const=1,
             help=f"Add more evaluation metrics",
-            dest="verbose"
+            dest="verbose",
         )
         self._activation_func_arg(parser)
 
@@ -98,8 +91,7 @@ class Network(DataPreprocessing):
         self.layers = []
         super().__init__()
         self.wbdc_preprocess()
-        self.verbose = self.get_args(
-            "verbose", default_value=0)
+        self.verbose = self.get_args("verbose", default_value=0)
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
             default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
@@ -116,10 +108,36 @@ class Network(DataPreprocessing):
         )
 
     def _visualize(self, epochs):
+        fig = plt.figure(figsize=(10, 7))
+        ep = range(epochs)
+        val_loss = [v * 100 for v in self.val_loss]
+
         plt.subplot(1, 2, 1)
-        plt.plot(range(epochs), self.loss, c="r")
+        plt.title("Loss")
+        plt.xlabel("epochs")
+        (line,) = plt.plot([], [], c="r")
+        plt.ylim(min(self.loss) - 0.2, max(self.loss) + 0.2)
+        plt.xlim(-10, epochs + 10)
+
         plt.subplot(1, 2, 2)
-        plt.plot(range(epochs), self.val_loss, c="b")
+        plt.title("Accuracy")
+        plt.xlabel("epochs")
+        plt.ylabel("percents")
+        (line2,) = plt.plot([], [], c="b")
+        plt.ylim(min(val_loss) - 5, max(val_loss) + 5)
+        plt.xlim(-10, epochs + 10)
+
+        def animate(i):
+            line.set_data(ep[:i], self.loss[:i])
+            line2.set_data(ep[:i], val_loss[:i])
+            return (
+                line,
+                line2,
+            )
+
+        ani = animation.FuncAnimation(
+            fig, animate, frames=epochs, blit=True, interval=1, repeat=False
+        )
         plt.show()
 
     @staticmethod
@@ -141,7 +159,7 @@ class Network(DataPreprocessing):
                 [["False", TN, FP], ["True", FN, TP]],
                 headers=[f"sample size={Y.shape[0]}", "False", "True"],
             ),
-            f"\n{'-'*70}"
+            f"\n{'-'*70}",
         )
 
     def get_output_delta(self, a, target):
