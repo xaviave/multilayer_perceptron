@@ -135,6 +135,7 @@ class Network(DataPreprocessing):
         FN = np.where((Y != predicted) & (predicted == 0))[0].shape[0]
         print(
             f"F1 score = {self._f1_score(TP, FP, FN) if TP + FP != 0 and TP + FN != 0 else 'nan'}",
+            f"Mean squared Error = {self.mean_squared(Y, predicted)}",
             "Confusion Matrix\n",
             tabulate(
                 [["False", TN, FP], ["True", FN, TP]],
