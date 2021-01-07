@@ -262,6 +262,6 @@ class Network(DataPreprocessing):
         input_dim = raw_model[0][0]
         layers_size = [l for l in raw_model[0][1]]
         self._init_layers(input_dim, layers_size)
-        for i in range(len(raw_model[0][1])):
-            self.layers[-1].weights = np.array(raw_model[i + 1][0])
-            self.layers[-1].biases = np.array(raw_model[i + 1][1])
+        for i in range(len(layers_size)):
+            self.layers[i].weights = np.array(raw_model[i + 1][0])
+            self.layers[i].biases = np.array(raw_model[i + 1][1])
