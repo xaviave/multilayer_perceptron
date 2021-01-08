@@ -27,25 +27,6 @@ class Network(DataPreprocessing):
     Override Methods
     """
 
-    def _activation_func_arg(self, parser):
-        activation_group = parser.add_mutually_exclusive_group(required=False)
-        activation_group.add_argument(
-            "-sac",
-            "--sigmoid",
-            action="store_const",
-            const={"activation": self.sigmoid, "derivative": self.d_sigmoid},
-            help="Use sigmoid as activation function (default value)",
-            dest="type_activation",
-        )
-        activation_group.add_argument(
-            "-tac",
-            "--tanh",
-            action="store_const",
-            const={"activation": self.tanh, "derivative": self.d_tanh},
-            help="Use tanh as activation function",
-            dest="type_activation",
-        )
-
     def _add_parser_args(self, parser):
         super()._add_parser_args(parser)
         parser.add_argument(
@@ -56,10 +37,6 @@ class Network(DataPreprocessing):
             help=f"Add more evaluation metrics",
             dest="verbose",
         )
-
-    def _add_exclusive_args(self, parser):
-        super()._add_exclusive_args(parser)
-        self._activation_func_arg(parser)
 
     """
     Private Methods
@@ -86,9 +63,6 @@ class Network(DataPreprocessing):
             Layer(
                 size,
                 input_layer_dim,
-                pre_activation=self._weighted_sum,
-                activation=self.activation_func,
-                derivative=self.derivative,
             )
         )
 
@@ -99,24 +73,12 @@ class Network(DataPreprocessing):
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
 
-    def __init__(self, input_dim: int = None, layers_size: list = None):
-        self.layers = []
-        super().__init__()
-        self.wbdc_preprocess()
-        self.verbose = self.get_args("verbose", default_value=0)
-        self.activation_func, self.derivative = self.get_args(
-            "type_activation",
-            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
-        ).values()
-        if input_dim and layers_size:
-            self._init_layers(input_dim, layers_size)
-
-    def _shuffle(self):
-        c = np.c_[self.X.reshape(len(self.X), -1), self.Y.reshape(len(self.Y), -1)]
+    def _shuffle(self, X, Y):
+        c = np.c_[self.X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
         np.random.shuffle(c)
         return (
-            c[:, : self.X.size // len(self.X)].reshape(self.X.shape),
-            c[:, self.X.size // len(self.X) :].reshape(self.Y.shape),
+            c[:, : X.size // len(X)].reshape(X.shape),
+            c[:, X.size // len(X) :].reshape(Y.shape),
         )
 
     def _visualize(self, epochs):
@@ -147,7 +109,7 @@ class Network(DataPreprocessing):
                 line2,
             )
 
-        ani = animation.FuncAnimation(
+        _ = animation.FuncAnimation(
             fig, animate, frames=epochs, blit=True, interval=1, repeat=False
         )
         plt.show()
@@ -257,10 +219,6 @@ class Network(DataPreprocessing):
         super().__init__()
         self.wbdc_preprocess()
         self.verbose = self.get_args("verbose", default_value=0)
-        self.activation_func, self.derivative = self.get_args(
-            "type_activation",
-            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
-        ).values()
         if input_dim and layers_size:
             self._init_layers(input_dim, layers_size)
 
@@ -280,7 +238,7 @@ class Network(DataPreprocessing):
         for e in range(epochs):
             self.predicted = []
             start = datetime.datetime.now()
-            X, Y = self._shuffle()
+            X, Y = self._shuffle(self.X, self.Y)
             for batch_start in range(0, n, batch_size):
                 X_batch, Y_batch = (
                     X[batch_start : batch_start + batch_size],
@@ -290,16 +248,14 @@ class Network(DataPreprocessing):
             self._evaluate(e, epochs, start, X, Y)
             if e > watch_perf and best_acc[0] < self.val_loss[-1]:
                 best_acc = [self.val_loss[-1], copy.deepcopy(self.layers)]
-        self.layers = best_acc[1]
+        self.layers = best_acc[1] if best_acc[1] != 0 else self.layers
         self._visualize(epochs)
 
     def evaluate(self):
-        results = [
-            1 if self._predict(x) == y else 0
-            for (x, y) in zip(self.X_test, self.Y_test)
-        ]
+        X, Y = self._shuffle(self.X_test, self.Y_test)
+        results = [1 if self._predict(x) == y else 0 for (x, y) in zip(X, Y)]
         accuracy = sum(results) / len(results)
-        return accuracy
+        print(f"Accuracy of loaded model on test dataset is: {accuracy * 100:.2f}%")
 
     """
     File Handling Method

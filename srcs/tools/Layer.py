@@ -9,16 +9,14 @@ class Layer(Math):
     biases: np.array
     weights: np.array
 
-    def __init__(
-        self, size: int, input_size: int, pre_activation, activation, derivative
-    ):
+    def __init__(self, size: int, input_size: int):
         self.size = size
         self.input_size = input_size
         self.biases = np.random.randn(size)
         self.weights = np.random.randn(size, input_size)
-        self.pre_activation = pre_activation
-        self.activation = activation
-        self.activation_prime = derivative
+        self.pre_activation = self._weighted_sum
+        self.activation = self.sigmoid
+        self.activation_prime = self.d_sigmoid
 
     """
     Public Methods
