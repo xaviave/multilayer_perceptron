@@ -22,19 +22,12 @@ class Math:
     def sigmoid(z):
         return 1.0 / (1.0 + np.exp(-z))
 
-    @staticmethod
-    def tanh(z):
-        return (np.exp(z) - np.exp(-z)) / (np.exp(z) + np.exp(-z))
-
     """
     DERIVATIVE
     """
 
     def d_sigmoid(self, z):
         return self.sigmoid(z) * (1 - self.sigmoid(z))
-
-    def d_tanh(self, z):
-        return 1 - np.power(self.tanh(z), 2)
 
     """
     ERROR
