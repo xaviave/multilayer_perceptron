@@ -20,6 +20,10 @@ class Layer(Math):
         self.activation = activation
         self.activation_prime = derivative
 
+    """
+    Public Methods
+    """
+
     def forward(self, data: np.ndarray):
         aggregation = self.pre_activation(data, self.weights, self.biases)
         activation = self.activation(aggregation)

@@ -1,3 +1,4 @@
+import copy
 import logging
 import datetime
 
@@ -15,12 +16,16 @@ class Network(DataPreprocessing):
     deltas: list
     layers: list
     loss: list = []
-    val_loss: list = []
     times: list = []
+    val_loss: list = []
     predicted: list = []
     activations: list = []
     weighted_sums: list = []
     default_model_file: str = "data/models/default_model"
+
+    """
+    Override Methods
+    """
 
     def _activation_func_arg(self, parser):
         activation_group = parser.add_mutually_exclusive_group(required=False)
@@ -41,8 +46,8 @@ class Network(DataPreprocessing):
             dest="type_activation",
         )
 
-    def _add_exclusive_args(self, parser):
-        super()._add_exclusive_args(parser)
+    def _add_parser_args(self, parser):
+        super()._add_parser_args(parser)
         parser.add_argument(
             "-v",
             "--verbose",
@@ -51,7 +56,14 @@ class Network(DataPreprocessing):
             help=f"Add more evaluation metrics",
             dest="verbose",
         )
+
+    def _add_exclusive_args(self, parser):
+        super()._add_exclusive_args(parser)
         self._activation_func_arg(parser)
+
+    """
+    Private Methods
+    """
 
     @staticmethod
     def _to_one_hot(y: int, k: int) -> np.array:
@@ -153,7 +165,7 @@ class Network(DataPreprocessing):
         FN = np.where((Y != predicted) & (predicted == 0))[0].shape[0]
         print(
             f"F1 score = {self._f1_score(TP, FP, FN) if TP + FP != 0 and TP + FN != 0 else 'nan'}",
-            f"Mean squared Error = {self.mean_squared(Y, predicted)}",
+            f"Mean squared Error = {self.mean_squared(Y, predicted)}\n",
             "Confusion Matrix\n",
             tabulate(
                 [["False", TN, FP], ["True", FN, TP]],
@@ -162,23 +174,24 @@ class Network(DataPreprocessing):
             f"\n{'-'*70}",
         )
 
-    def get_output_delta(self, a, target):
+    @staticmethod
+    def _get_output_delta(a, target):
         return a - target
 
-    def feedforward(self, x):
+    def _feedforward(self, x):
         self.activations = [x]
         self.weighted_sums = []
         for layer in self.layers:
             self.weighted_sums.append(
-                self._weighted_sum(
-                    self.activations[-1], layer.weights, layer.biases
-                )
+                self._weighted_sum(self.activations[-1], layer.weights, layer.biases)
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
         self.predicted.append(self.activations[-1])
 
-    def calcul_backpropagation(self, y):
-        delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))
+    def _calcul_backpropagation(self, y):
+        delta = self._get_output_delta(
+            self.activations[-1], self._to_one_hot(int(y), 2)
+        )
         deltas = [delta]
 
         nb_layers = len(self.layers) - 2
@@ -189,7 +202,7 @@ class Network(DataPreprocessing):
             deltas.append(activation_prime * np.dot(next_layer.weights.T, deltas[-1]))
         self.deltas = list(reversed(deltas))
 
-    def apply_backpropagation(self):
+    def _apply_backpropagation(self):
         bias_gradient = []
         weight_gradient = []
         for i in range(len(self.layers)):
@@ -198,13 +211,13 @@ class Network(DataPreprocessing):
             bias_gradient.append(self.deltas[i])
         return weight_gradient, bias_gradient
 
-    def train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
+    def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
         weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
         bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
         for (x, y) in zip(X, Y):
-            self.feedforward(x)
-            self.calcul_backpropagation(y)
-            new_weight_gradient, new_bias_gradient = self.apply_backpropagation()
+            self._feedforward(x)
+            self._calcul_backpropagation(y)
+            new_weight_gradient, new_bias_gradient = self._apply_backpropagation()
             for i in range(len(self.layers)):
                 weight_gradient[i] += new_weight_gradient[i]
                 bias_gradient[i] += new_bias_gradient[i]
@@ -217,7 +230,7 @@ class Network(DataPreprocessing):
         cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
         self.loss.append(self.cross_entropy(cross_y, np.array(self.predicted)))
         self.times.append(datetime.datetime.now() - start)
-        predicted = np.array([self.predict(x) for x in X])
+        predicted = np.array([self._predict(x) for x in X])
         if self.verbose:
             self._additional_metrics(predicted, Y)
         well = np.where(predicted == Y)[0]
@@ -226,6 +239,35 @@ class Network(DataPreprocessing):
             f"epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
         )
 
+    """
+    Predict
+    """
+
+    def _predict_feedforward(self, input_data):
+        activation = input_data
+        for layer in self.layers:
+            activation = layer.forward(activation)
+        return activation
+
+    def _predict(self, input_data):
+        return np.argmax(self._predict_feedforward(input_data))
+
+    def __init__(self, input_dim: int = None, layers_size: list = None):
+        self.layers = []
+        super().__init__()
+        self.wbdc_preprocess()
+        self.verbose = self.get_args("verbose", default_value=0)
+        self.activation_func, self.derivative = self.get_args(
+            "type_activation",
+            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
+        ).values()
+        if input_dim and layers_size:
+            self._init_layers(input_dim, layers_size)
+
+    """
+    Public Methods
+    """
+
     def train(
         self,
         epochs: int = 30,
@@ -233,6 +275,8 @@ class Network(DataPreprocessing):
         batch_size: int = 10,
     ):
         n = self.Y.size
+        best_acc: list = [0, 0]
+        watch_perf = int(epochs - (epochs / 10))
         for e in range(epochs):
             self.predicted = []
             start = datetime.datetime.now()
@@ -242,26 +286,17 @@ class Network(DataPreprocessing):
                     X[batch_start : batch_start + batch_size],
                     Y[batch_start : batch_start + batch_size],
                 )
-                self.train_batch(X_batch, Y_batch, learning_rate)
+                self._train_batch(X_batch, Y_batch, learning_rate)
             self._evaluate(e, epochs, start, X, Y)
+            if e > watch_perf and best_acc[0] < self.val_loss[-1]:
+                best_acc = [self.val_loss[-1], copy.deepcopy(self.layers)]
+        self.layers = best_acc[1]
         self._visualize(epochs)
-
-    """
-    Predict
-    """
-
-    def predict_feedforward(self, input_data):
-        activation = input_data
-        for layer in self.layers:
-            activation = layer.forward(activation)
-        return activation
-
-    def predict(self, input_data):
-        return np.argmax(self.predict_feedforward(input_data))
 
     def evaluate(self):
         results = [
-            1 if self.predict(x) == y else 0 for (x, y) in zip(self.X_test, self.Y_test)
+            1 if self._predict(x) == y else 0
+            for (x, y) in zip(self.X_test, self.Y_test)
         ]
         accuracy = sum(results) / len(results)
         return accuracy

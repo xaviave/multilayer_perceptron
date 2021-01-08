@@ -34,7 +34,7 @@ class DataPreprocessing(ArgParser, Math):
     Override Methods
     """
 
-    def _add_exclusive_args(self, parser):
+    def _add_parser_args(self, parser):
         super()._add_parser_args(parser)
         parser.add_argument(
             "-d",
@@ -146,11 +146,6 @@ Models path: {self.model_path}
     def df_to_np(df):
         y = df.pop(0)
         return df.to_numpy() / 255, y
-
-    def mnist_preprocess(self):
-        np.random.shuffle(self.df_dataset_train.values)
-        self.X, self.Y = self.df_to_np(self.df_dataset_train)
-        self.X_test, self.Y_test = self.df_to_np(self.df_dataset_test)
 
     def wbdc_preprocess(self):
         self.Y = np.where(self.df_dataset_train.pop(1) == "M", 0, 1)
