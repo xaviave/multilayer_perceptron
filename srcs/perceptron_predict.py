@@ -1,8 +1,10 @@
-from tools.DataPreprocessing import DataPreprocessing
+from tools.Network import Network
 
 
 def run():
-    DataPreprocessing()
+    nn = Network()
+    nn.load_model()
+    nn.evaluate()
 
 
 if __name__ == "__main__":
