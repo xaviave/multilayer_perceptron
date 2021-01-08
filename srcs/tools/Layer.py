@@ -31,10 +31,10 @@ class Layer(Math):
         """
         Gradient Descent Update
         """
-        self.weights -= learning_rate * gradient
+        self.weights -= learning_rate * (0.1 * gradient) 
 
     def update_biases(self, gradient: np.ndarray, learning_rate: float):
         """
         Gradient Descent Update
         """
-        self.biases -= learning_rate * gradient
+        self.biases -= learning_rate * (0.1 * gradient)
