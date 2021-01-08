@@ -16,10 +16,13 @@ class Network(DataPreprocessing):
     layers: list
     loss: list = []
     times: list = []
+
     val_loss: list = []
     predicted: list = []
     activations: list = []
     weighted_sums: list = []
+    best_acc: list = [0, 0]
+    best_loss: list = [0, 0]
     default_model_file: str = "data/models/default_model"
 
     """
@@ -82,7 +85,7 @@ class Network(DataPreprocessing):
 
     def _visualize(self, epochs):
         fig = plt.figure(figsize=(10, 7))
-        ep = range(epochs)
+        ep = range(self.epochs)
         val_loss = [v * 100 for v in self.val_loss]
 
         plt.subplot(1, 2, 1)
@@ -187,7 +190,7 @@ class Network(DataPreprocessing):
             layer.update_weights(wg / Y.size, learning_rate)
             layer.update_biases(bg / Y.size, learning_rate)
 
-    def _evaluate(self, e, epochs, start, X, Y):
+    def _evaluate(self, start, X, Y, e: int = None, epochs: int = None):
         cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
         self.loss.append(self.cross_entropy(cross_y, np.array(self.predicted)))
         self.times.append(datetime.datetime.now() - start)
@@ -196,9 +199,9 @@ class Network(DataPreprocessing):
             self._additional_metrics(predicted, Y)
         well = np.where(predicted == Y)[0]
         self.val_loss.append(well.shape[0] / Y.shape[0])
-        print(
-            f"epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
-        )
+        # print(
+        #     f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
+        # )
 
     """
     Predict
@@ -213,28 +216,30 @@ class Network(DataPreprocessing):
     def _predict(self, input_data):
         return np.argmax(self._predict_feedforward(input_data))
 
-    def __init__(self, input_dim: int = None, layers_size: list = None):
+    def __init__(
+        self,
+        input_dim: int = None,
+        layers_size: list = None,
+        epochs: int = 100,
+        learning_rate: float = 0.5,
+    ):
         self.layers = []
         super().__init__()
         self.wbdc_preprocess()
         self.verbose = self.get_args("verbose", default_value=0)
-        if input_dim and layers_size:
+        if input_dim is not None and layers_size is not None:
             self._init_layers(input_dim, layers_size)
+        self.epochs = epochs
+        self.learning_rate = learning_rate
 
     """
     Public Methods
     """
 
-    def train(
-        self,
-        epochs: int = 30,
-        learning_rate: float = 0.3,
-        batch_size: int = 10,
-    ):
+    def train(self, batch_size: int = 10):
         n = self.Y.size
-        best_acc: list = [0, 0]
-        watch_perf = int(epochs - (epochs / 10))
-        for e in range(epochs):
+        watch_perf = int(self.epochs - (self.epochs / 10))
+        for e in range(self.epochs):
             self.predicted = []
             start = datetime.datetime.now()
             X, Y = self._shuffle(self.X, self.Y)
@@ -243,18 +248,20 @@ class Network(DataPreprocessing):
                     X[batch_start : batch_start + batch_size],
                     Y[batch_start : batch_start + batch_size],
                 )
-                self._train_batch(X_batch, Y_batch, learning_rate)
-            self._evaluate(e, epochs, start, X, Y)
-            if e > watch_perf and best_acc[0] < self.val_loss[-1]:
-                best_acc = [self.val_loss[-1], copy.deepcopy(self.layers)]
-        self.layers = best_acc[1] if best_acc[1] != 0 else self.layers
-        self._visualize(epochs)
+                self._train_batch(X_batch, Y_batch, self.learning_rate)
+            self._evaluate(start, X, Y, e=e, epochs=self.epochs)
+            if e > watch_perf and self.best_acc[0] < self.val_loss[-1]:
+                self.best_acc = [self.val_loss[-1], copy.deepcopy(self.layers)]
+            if e > watch_perf and self.best_loss[0] < self.loss[-1]:
+                self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
+        self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
+        self._visualize(self.epochs)
 
     def evaluate(self):
+        start = datetime.datetime.now()
         X, Y = self._shuffle(self.X_test, self.Y_test)
-        results = [1 if self._predict(x) == y else 0 for (x, y) in zip(X, Y)]
-        accuracy = sum(results) / len(results)
-        print(f"Accuracy of loaded model on test dataset is: {accuracy * 100:.2f}%")
+        self.predicted = [self._predict_feedforward(x) for x in X]
+        self._evaluate(start, X, Y)
 
     """
     File Handling Method
