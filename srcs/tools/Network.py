@@ -74,7 +74,7 @@ class Network(DataPreprocessing):
             Layer(
                 size,
                 input_layer_dim,
-                pre_activation=self._gradient_descent,
+                pre_activation=self._weighted_sum,
                 activation=self.activation_func,
                 derivative=self.derivative,
             )
@@ -170,7 +170,7 @@ class Network(DataPreprocessing):
         self.weighted_sums = []
         for layer in self.layers:
             self.weighted_sums.append(
-                self._gradient_descent(
+                self._weighted_sum(
                     self.activations[-1], layer.weights, layer.biases
                 )
             )
