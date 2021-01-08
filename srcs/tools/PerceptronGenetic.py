@@ -4,16 +4,25 @@ import threading
 from numpy import random
 import numpy as np
 
-from tools.Genetic.Genetic import Genetic
 from tools.Network import Network
+from tools.Genetic.Genetic import Genetic
 
 
 class PerceptronGenetic(Genetic):
+    best_ind = Network
+
+    def _create_layers(self):
+        layer = []
+        for _ in range(random.randint(2, 3)):
+            layer.append(random.randint(self.output_size, int(self.input_size * 1.5)))
+        layer = np.sort(layer)[::-1]
+        return np.array([*layer, self.output_size])
+
     def init_population(self):
         self.population = []
         for _ in range(self.population_size):
-            epochs = random.randint(100, 1000)
-            learning_rate = random.uniform(0.01, 1)
+            epochs = random.randint(1000, 5000)
+            learning_rate = random.uniform(0.001, 0.51)
             layers_size = self._create_layers()
             self.population.append(
                 {
@@ -41,8 +50,16 @@ class PerceptronGenetic(Genetic):
 
     def fitness_calculation(self):
         self._launch_obj()
+        self.best_ind = sorted(
+            self.population, key=lambda ind: ind["obj"].best_loss, reverse=True
+        )[0]["obj"]
+        print("\033[93m",
+            f"""best loss: {self.best_ind.best_loss[0]}
+        layers = {self.best_ind.layers_size} | epochs = {self.best_ind.epochs} | learning_rate = {self.best_ind.learning_rate}
+        """, "\033[0m",
+        )
         for i, ind in enumerate(self.population):
-            self.population[i]["grade"] += ind["obj"].best_loss[0] * 100
+            self.population[i]["grade"] += ind["obj"].best_loss[0] * 200
             self.population[i]["grade"] += ind["obj"].best_acc[0] * 100
 
     def mating_poll(self):
@@ -66,10 +83,15 @@ class PerceptronGenetic(Genetic):
         self.population_size = len(self.population)
 
     def _random_crossover(self, parent1, parent2):
-        args = [parent1.layers_size, parent1.epochs, parent1.learning_rate]
-        for i, k in enumerate(["layers_size", "epochs", "learning_rate"]):
-            if (random.randint(1, 2) % 2) == 1:
-                args[i] = vars(parent2)[k]
+        args = {
+            "input_dim": self.input_size,
+            "layers_size": parent1.layers_size,
+            "epochs": parent1.epochs,
+            "learning_rate": parent1.learning_rate,
+        }
+        for k in ["layers_size", "epochs", "learning_rate"]:
+            if (random.randint(0, 9) % 2) == 1:
+                args[k] = vars(parent2)[k]
         return args
 
     def _crossover(self, parent1, parent2) -> list:
@@ -77,50 +99,40 @@ class PerceptronGenetic(Genetic):
         args1 = self._random_crossover(parent1["obj"], parent2["obj"])
         args2 = self._random_crossover(parent1["obj"], parent2["obj"])
         return [
-            {"obj": Network(*args1), "grade": 0},
-            {"obj": Network(*args2), "grade": 0},
+            {"obj": Network(**args1), "grade": 0},
+            {"obj": Network(**args2), "grade": 0},
         ]
-
-    def _create_layers(self):
-        layer = []
-        for _ in range(random.randint(2, 15)):
-            layer.append(random.randint(self.output_size, int(self.input_size * 1.5)))
-        layer = np.sort(layer)[::-1]
-        return np.array([*layer, self.output_size])
 
     def _random_mutation(self, individual, max_mut):
         mut = 0
-        args = [individual.layers_size, individual.epochs, individual.learning_rate]
-        for i, k in enumerate(["layers_size", "epochs", "learning_rate"]):
+        args = {
+            "input_dim": self.input_size,
+            "layers_size": individual.layers_size,
+            "epochs": individual.epochs,
+            "learning_rate": individual.learning_rate,
+        }
+        for k in ["layers_size", "epochs", "learning_rate"]:
             if (random.randint(0, 9) % 2) == 1 and mut < max_mut:
                 mut += 1
                 if k == "layers_size":
-                    args[i] = self._create_layers()
+                    args[k] = self._create_layers()
                 elif k == "epochs":
-                    args[i] = random.randint(100, 1000)
+                    args[k] = random.randint(1000, 5000)
                 elif k == "learning_rate":
-                    args[i] = random.uniform(0.01, 1)
+                    args[k] = random.uniform(0.001, 0.5)
         return args
 
     def _mutation(self, individual):
         super()._mutation(individual)
         args = self._random_mutation(individual["obj"], 1)
-        individual["obj"] = Network(*args)
+        individual["obj"] = Network(**args)
         individual["grade"] = 0
 
     def check_result(self) -> bool:
-        best_ind = sorted(
-            self.population, key=lambda ind: ind["obj"].best_loss, reverse=True
-        )[0]["obj"]
-        print(
-            f"""best loss: {best_ind.best_loss[0]}
-layers = {best_ind.layers_size} | epochs = {best_ind.epochs} | learning_rate = {best_ind.learning_rate}
-"""
-        )
         timer = datetime.timedelta(minutes=self.timer)
         if (
             datetime.datetime.now() - self.start_time < timer
-            or best_ind["obj"].best_loss[0] < self.loss
+            or self.best_ind["obj"].best_loss[0] < self.loss
         ):
             return False
         return True

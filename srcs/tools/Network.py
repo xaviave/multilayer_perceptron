@@ -20,6 +20,7 @@ class Network(DataPreprocessing):
     val_loss: list = []
     predicted: list = []
     activations: list = []
+    layers_size: list = []
     weighted_sums: list = []
     best_acc: list = [0, 0]
     best_loss: list = [0, 0]
@@ -223,6 +224,15 @@ class Network(DataPreprocessing):
         epochs: int = 100,
         learning_rate: float = 0.5,
     ):
+        print(
+            "\033[92m",
+            "init_network",
+            input_dim,
+            layers_size,
+            epochs,
+            learning_rate,
+            "\033[0m",
+        )
         self.layers = []
         super().__init__()
         self.wbdc_preprocess()
@@ -255,7 +265,8 @@ class Network(DataPreprocessing):
             if e > watch_perf and self.best_loss[0] < self.loss[-1]:
                 self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
         self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
-        self._visualize(self.epochs)
+        print("finish")
+        # self._visualize(self.epochs)
 
     def evaluate(self):
         start = datetime.datetime.now()
