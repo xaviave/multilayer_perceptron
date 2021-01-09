@@ -53,10 +53,12 @@ class PerceptronGenetic(Genetic):
         self.best_ind = sorted(
             self.population, key=lambda ind: ind["obj"].best_loss, reverse=True
         )[0]["obj"]
-        print("\033[93m",
+        print(
+            "\033[93m",
             f"""best loss: {self.best_ind.best_loss[0]}
         layers = {self.best_ind.layers_size} | epochs = {self.best_ind.epochs} | learning_rate = {self.best_ind.learning_rate}
-        """, "\033[0m",
+        """,
+            "\033[0m",
         )
         for i, ind in enumerate(self.population):
             self.population[i]["grade"] += ind["obj"].best_loss[0] * 200

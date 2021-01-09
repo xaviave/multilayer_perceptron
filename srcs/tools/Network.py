@@ -30,6 +30,41 @@ class Network(DataPreprocessing):
     Override Methods
     """
 
+    def _activation_func_arg(self, parser):
+        activation_group = parser.add_mutually_exclusive_group(required=False)
+        activation_group.add_argument(
+            "-sac",
+            "--sigmoid",
+            action="store_const",
+            const={"activation": self.sigmoid, "derivative": self.d_sigmoid},
+            help="Use sigmoid as activation function (default value)",
+            dest="type_activation",
+        )
+        activation_group.add_argument(
+            "-tac",
+            "--tanh",
+            action="store_const",
+            const={"activation": self.tanh, "derivative": self.d_tanh},
+            help="Use tanh as activation function",
+            dest="type_activation",
+        )
+        activation_group.add_argument(
+            "-rac",
+            "--relu",
+            action="store_const",
+            const={"activation": self.relu, "derivative": self.d_relu},
+            help="Use ReLU as activation function",
+            dest="type_activation",
+        )
+        activation_group.add_argument(
+            "-lac",
+            "--leaky_relu",
+            action="store_const",
+            const={"activation": self.leaky_relu, "derivative": self.d_leaky_relu},
+            help="Use leaky ReLU as activation function",
+            dest="type_activation",
+        )
+
     def _add_parser_args(self, parser):
         super()._add_parser_args(parser)
         parser.add_argument(
@@ -40,6 +75,7 @@ class Network(DataPreprocessing):
             help=f"Add more evaluation metrics",
             dest="verbose",
         )
+        self._activation_func_arg(parser)
 
     """
     Private Methods
@@ -66,6 +102,8 @@ class Network(DataPreprocessing):
             Layer(
                 size,
                 input_layer_dim,
+                activation=self.activation_func,
+                derivative=self.derivative,
             )
         )
 
@@ -200,9 +238,9 @@ class Network(DataPreprocessing):
             self._additional_metrics(predicted, Y)
         well = np.where(predicted == Y)[0]
         self.val_loss.append(well.shape[0] / Y.shape[0])
-        # print(
-        #     f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
-        # )
+        print(
+            f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
+        )
 
     """
     Predict
@@ -237,6 +275,10 @@ class Network(DataPreprocessing):
         super().__init__()
         self.wbdc_preprocess()
         self.verbose = self.get_args("verbose", default_value=0)
+        self.activation_func, self.derivative = self.get_args(
+            "type_activation",
+            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
+        ).values()
         if input_dim is not None and layers_size is not None:
             self._init_layers(input_dim, layers_size)
         self.epochs = epochs
@@ -265,8 +307,8 @@ class Network(DataPreprocessing):
             if e > watch_perf and self.best_loss[0] < self.loss[-1]:
                 self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
         self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
-        print("finish")
-        # self._visualize(self.epochs)
+        # print("finish")
+        self._visualize(self.epochs)
 
     def evaluate(self):
         start = datetime.datetime.now()

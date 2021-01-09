@@ -9,14 +9,14 @@ class Layer(Math):
     biases: np.array
     weights: np.array
 
-    def __init__(self, size: int, input_size: int):
+    def __init__(self, size: int, input_size: int, activation, derivative):
         self.size = size
         self.input_size = input_size
         self.biases = np.random.randn(size)
         self.weights = np.random.randn(size, input_size)
         self.pre_activation = self._weighted_sum
-        self.activation = self.sigmoid
-        self.activation_prime = self.d_sigmoid
+        self.activation = activation
+        self.activation_prime = derivative
 
     """
     Public Methods
@@ -31,10 +31,10 @@ class Layer(Math):
         """
         Gradient Descent Update
         """
-        self.weights -= learning_rate * (0.1 * gradient) 
+        self.weights -= learning_rate * (0.01 * gradient)
 
     def update_biases(self, gradient: np.ndarray, learning_rate: float):
         """
         Gradient Descent Update
         """
-        self.biases -= learning_rate * (0.1 * gradient)
+        self.biases -= learning_rate * (0.01 * gradient)
