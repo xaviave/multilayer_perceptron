@@ -64,6 +64,14 @@ class Network(DataPreprocessing):
             help="Use leaky ReLU as activation function",
             dest="type_activation",
         )
+        activation_group.add_argument(
+            "-pac",
+            "--parametric_relu",
+            action="store_const",
+            const={"activation": self.prelu, "derivative": self.d_prelu},
+            help="Use parametric ReLU as activation function",
+            dest="type_activation",
+        )
 
     def _add_parser_args(self, parser):
         super()._add_parser_args(parser)

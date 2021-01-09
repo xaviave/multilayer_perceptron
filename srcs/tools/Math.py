@@ -31,11 +31,15 @@ class Math:
         return (np.exp(z) - np.exp(-z)) / (np.exp(z) + np.exp(-z))
 
     @staticmethod
-    def leaky_relu(z):
-        return np.array([max(0.2, zi) for zi in z])
-
-    def relu(self, z):
+    def relu(z):
         return np.array([max(0, zi) for zi in z])
+
+    @staticmethod
+    def leaky_relu(z):
+        return np.array([zi if zi > 0 else 0.2 for zi in z])
+
+    def prelu(self, z):
+        return np.array([zi if zi > 0 else self.learning_rate * zi for zi in z])
 
     """
     DERIVATIVE
@@ -48,11 +52,15 @@ class Math:
         return 1 - np.power(self.tanh(z), 2)
 
     @staticmethod
+    def d_relu(z):
+        return np.array([1 if zi > 0 else 0 for zi in z])
+
+    @staticmethod
     def d_leaky_relu(z):
         return np.array([1 if zi > 0 else 0.2 for zi in z])
 
-    def d_relu(self, z):
-        return np.array([1 if zi > 0 else 0 for zi in z])
+    def d_prelu(self, z):
+        return np.array([1 if zi > 0 else self.learning_rate for zi in z])
 
     """
     ERROR
