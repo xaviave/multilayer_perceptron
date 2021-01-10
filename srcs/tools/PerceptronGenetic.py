@@ -14,15 +14,15 @@ class PerceptronGenetic(Genetic):
     def _create_layers(self):
         layer = []
         for _ in range(random.randint(2, 3)):
-            layer.append(random.randint(self.output_size, int(self.input_size * 1.5)))
+            layer.append(random.randint(self.output_size, self.input_size))
         layer = np.sort(layer)[::-1]
         return np.array([*layer, self.output_size])
 
     def init_population(self):
         self.population = []
-        for _ in range(self.population_size):
-            epochs = random.randint(1000, 5000)
-            learning_rate = random.uniform(0.001, 0.51)
+        for i in range(self.population_size):
+            epochs = random.randint(300, 1000)
+            learning_rate = random.uniform(0.001, 0.1)
             layers_size = self._create_layers()
             self.population.append(
                 {
@@ -31,6 +31,7 @@ class PerceptronGenetic(Genetic):
                         layers_size=layers_size,
                         epochs=epochs,
                         learning_rate=learning_rate,
+                        name=f"thread-{i}",
                     ),
                     "grade": 0,
                 }
@@ -41,7 +42,8 @@ class PerceptronGenetic(Genetic):
 
     def _launch_obj(self):
         threads = []
-        for individual in self.population:
+        for i, individual in enumerate(self.population):
+            individual["obj"].name = f"thread {i}"
             x = threading.Thread(target=self._train_network, args=[individual["obj"]])
             x.start()
             threads.append(x)
@@ -51,7 +53,7 @@ class PerceptronGenetic(Genetic):
     def fitness_calculation(self):
         self._launch_obj()
         self.best_ind = sorted(
-            self.population, key=lambda ind: ind["obj"].best_loss, reverse=True
+            self.population, key=lambda ind: ind["obj"].best_loss[0]
         )[0]["obj"]
         print(
             "\033[93m",
@@ -114,14 +116,14 @@ class PerceptronGenetic(Genetic):
             "learning_rate": individual.learning_rate,
         }
         for k in ["layers_size", "epochs", "learning_rate"]:
-            if (random.randint(0, 9) % 2) == 1 and mut < max_mut:
+            if random.randn() > 0.3 and mut < max_mut:
                 mut += 1
                 if k == "layers_size":
                     args[k] = self._create_layers()
                 elif k == "epochs":
-                    args[k] = random.randint(1000, 5000)
+                    args[k] = random.randint(1000, 3000)
                 elif k == "learning_rate":
-                    args[k] = random.uniform(0.001, 0.5)
+                    args[k] = random.uniform(0.001, 0.1)
         return args
 
     def _mutation(self, individual):
@@ -134,9 +136,10 @@ class PerceptronGenetic(Genetic):
         timer = datetime.timedelta(minutes=self.timer)
         if (
             datetime.datetime.now() - self.start_time < timer
-            or self.best_ind["obj"].best_loss[0] < self.loss
+            or self.best_ind["obj"].best_loss[0] > self.loss
         ):
             return False
+        self.best_ind["obj"].save_model(model_name="genetic_model_0_07")
         return True
 
     def mating(self):
