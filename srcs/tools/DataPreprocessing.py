@@ -148,9 +148,17 @@ Models path: {self.model_path}
         y = df.pop(0)
         return df.to_numpy() / 255, y
 
+    def fix_data(self):
+        X = self.df_dataset_train.to_numpy()
+        X_ = X[(X != 0).all(axis=-1)]
+        for i in range(X.shape[1]):
+            m = np.mean(X_[i])
+            X[X[:, i] == 0] = m
+        return X
+
     def wbdc_preprocess(self):
         self.Y = np.where(self.df_dataset_train.pop(1) == "M", 0, 1)
         del self.df_dataset_train[0]
-        self.X = self.standardize(self.df_dataset_train.to_numpy())
+        self.X = self.standardize(self.fix_data())
         self.X_test = self.X
         self.Y_test = self.Y

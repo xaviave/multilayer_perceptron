@@ -288,10 +288,10 @@ class Network(DataPreprocessing):
         self.val_loss.append(well.shape[0] / Y.shape[0])
         if self.loss[-1] < 0.08:
             print("\033[94m")
-        if (e % 500) == 1:
-            print(
-                f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
-            )
+        # if (e % 500) == 1:
+        print(
+            f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
+        )
 
     """
     Predict
