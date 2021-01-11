@@ -11,7 +11,14 @@ from tools.DataPreprocessing import DataPreprocessing
 
 
 class Network(DataPreprocessing):
+    eta: float
+    beta1: float
+    beta2: float
+    epsilon: float
+
+    e: int = 0
     input_dim: int
+
     deltas: list
     layers: list
     loss: list = []
@@ -24,7 +31,7 @@ class Network(DataPreprocessing):
     weighted_sums: list = []
     best_acc: list = [0, 0]
     best_loss: list = [0, 0]
-    default_model_file: str = "data/models/default_model"
+    default_model_file: str = "data/models/default_model.npy"
 
     """
     Override Methods
@@ -83,6 +90,14 @@ class Network(DataPreprocessing):
             help=f"Add more evaluation metrics",
             dest="verbose",
         )
+        parser.add_argument(
+            "-m",
+            "--model",
+            type=str,
+            default=self.default_model_file,
+            help=f"Provide dataset NPY file - Using '{self.default_model_file}' as default model file",
+            dest="model_file",
+        )
         self._activation_func_arg(parser)
 
     """
@@ -122,6 +137,12 @@ class Network(DataPreprocessing):
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
 
+    def _init_adam(self, eta=0.01, beta1=0.9, beta2=0.999, epsilon=1e-8):
+        self.eta = eta
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon = epsilon
+
     def _shuffle(self, X, Y):
         c = np.c_[self.X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
         np.random.shuffle(c)
@@ -159,7 +180,7 @@ class Network(DataPreprocessing):
             )
 
         _ = animation.FuncAnimation(
-            fig, animate, frames=epochs, blit=True, interval=1, repeat=False
+            fig, animate, frames=epochs, blit=True, interval=0.5, repeat=False
         )
         plt.show()
 
@@ -213,6 +234,21 @@ class Network(DataPreprocessing):
             deltas.append(activation_prime * np.dot(next_layer.weights.T, deltas[-1]))
         self.deltas = list(reversed(deltas))
 
+    def adam(self, t, weight_gradient, bias_gradient):
+        g1 = weight_gradient[t].T.dot(self.deltas[t])
+
+        self.layers[t].l_m = self.layers[t].l_m * self.beta1 + (1 - self.beta1) * g1
+
+        self.layers[t].l_v = self.layers[t].l_v * self.beta2 + (
+            1 - self.beta2
+        ) * np.power(g1, 2)
+
+        l_m_corrected = self.layers[t].l_m / (1 - np.power(self.beta1, self.e))
+        l_v_corrected = self.layers[t].l_v / (1 - np.power(self.beta2, self.e))
+        w1_update = l_m_corrected / (np.sqrt(l_v_corrected) + self.epsilon)
+        weight_gradient[t] -= self.learning_rate * w1_update
+        return weight_gradient, bias_gradient
+
     def _apply_backpropagation(self):
         bias_gradient = []
         weight_gradient = []
@@ -220,12 +256,16 @@ class Network(DataPreprocessing):
             prev_activation = self.activations[i]
             weight_gradient.append(np.outer(self.deltas[i], prev_activation))
             bias_gradient.append(self.deltas[i])
+            weight_gradient, bias_gradient = self.adam(
+                i, weight_gradient, bias_gradient
+            )
         return weight_gradient, bias_gradient
 
     def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
         weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
         bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
-        for (x, y) in zip(X, Y):
+        for e, (x, y) in enumerate(zip(X, Y)):
+            self.e = e + 1
             self._feedforward(x)
             self._calcul_backpropagation(y)
             new_weight_gradient, new_bias_gradient = self._apply_backpropagation()
@@ -246,9 +286,12 @@ class Network(DataPreprocessing):
             self._additional_metrics(predicted, Y)
         well = np.where(predicted == Y)[0]
         self.val_loss.append(well.shape[0] / Y.shape[0])
-        print(
-            f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
-        )
+        if self.loss[-1] < 0.08:
+            print("\033[94m")
+        if (e % 500) == 1:
+            print(
+                f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
+            )
 
     """
     Predict
@@ -269,7 +312,7 @@ class Network(DataPreprocessing):
         layers_size: list = None,
         epochs: int = 100,
         learning_rate: float = 0.5,
-        name: str = "main"
+        name: str = "main",
     ):
         print(
             "\033[92m",
@@ -282,17 +325,22 @@ class Network(DataPreprocessing):
         )
         self.name = name
         self.layers = []
+        self.epochs = epochs
+        self.learning_rate = learning_rate
+
         super().__init__()
         self.wbdc_preprocess()
         self.verbose = self.get_args("verbose", default_value=0)
+        self.model_file = self.get_args(
+            "model_file", default_value=self.default_model_file
+        )
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
             default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
         ).values()
         if input_dim is not None and layers_size is not None:
             self._init_layers(input_dim, layers_size)
-        self.epochs = epochs
-        self.learning_rate = learning_rate
+        self._init_adam()
 
     """
     Public Methods
@@ -317,8 +365,8 @@ class Network(DataPreprocessing):
             if e > watch_perf and self.best_loss[0] < self.loss[-1]:
                 self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
         self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
-        # print(f"{self.name} finish")
-        #self._visualize(self.epochs)
+        print(f"{self.name} finish")
+        self._visualize(self.epochs)
 
     def evaluate(self):
         start = datetime.datetime.now()
@@ -335,8 +383,8 @@ class Network(DataPreprocessing):
         model.extend([(l.weights.tolist(), l.biases.tolist()) for l in self.layers])
         self._save_npy(model_file, model)
 
-    def load_model(self, model_file: str = default_model_file):
-        raw_model = self._load_npy(f"{model_file}.npy")
+    def load_model(self):
+        raw_model = self._load_npy(self.model_file)
         input_dim = raw_model[0][0]
         layers_size = [l for l in raw_model[0][1]]
         self._init_layers(input_dim, layers_size)
