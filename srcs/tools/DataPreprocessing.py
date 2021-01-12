@@ -159,6 +159,7 @@ Models path: {self.model_path}
     def wbdc_preprocess(self):
         self.Y = np.where(self.df_dataset_train.pop(1) == "M", 0, 1)
         del self.df_dataset_train[0]
+        self.fix_data()
         self.X = self.standardize(self.fix_data())
         self.X_test = self.X
         self.Y_test = self.Y
