@@ -1,4 +1,5 @@
 import numpy as np
+from numba import jit
 
 from tools.Math import Math
 
@@ -29,14 +30,18 @@ class Layer(Math):
         activation = self.activation(aggregation)
         return activation
 
-    def update_weights(self, gradient: np.ndarray, learning_rate: float):
+    @staticmethod
+    @jit(nopython=True)
+    def update_weights(weights, gradient: np.ndarray, learning_rate: float):
         """
         Gradient Descent Update
         """
-        self.weights -= learning_rate * (0.01 * gradient)
+        weights -= learning_rate * (0.01 * gradient)
 
-    def update_biases(self, gradient: np.ndarray, learning_rate: float):
+    @staticmethod
+    @jit(nopython=True)
+    def update_biases(biases, gradient: np.ndarray, learning_rate: float):
         """
         Gradient Descent Update
         """
-        self.biases -= learning_rate * (0.01 * gradient)
+        biases -= learning_rate * (0.01 * gradient)

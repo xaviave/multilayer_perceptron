@@ -4,6 +4,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from numba import jit
 from tabulate import tabulate
 
 from tools.Layer import Layer
@@ -105,6 +106,7 @@ class Network(DataPreprocessing):
     """
 
     @staticmethod
+    @jit(nopython=True)
     def _to_one_hot(y: int, k: int) -> np.array:
         """
         Convertit un entier en vecteur "one-hot".
@@ -231,41 +233,44 @@ class Network(DataPreprocessing):
             layer = self.layers[i]
             next_layer = self.layers[i + 1]
             activation_prime = layer.activation_prime(self.weighted_sums[i])
-            deltas.append(activation_prime * np.dot(next_layer.weights.T, deltas[-1]))
+            deltas.append(
+                self.calcul_deltas(activation_prime, next_layer.weights, deltas[-1])
+            )
         self.deltas = list(reversed(deltas))
 
-    def adam(self, t, weight_gradient, bias_gradient):
-        g1 = weight_gradient[t].T.dot(self.deltas[t])
-
-        self.layers[t].l_m = self.layers[t].l_m * self.beta1 + (1 - self.beta1) * g1
-
-        self.layers[t].l_v = self.layers[t].l_v * self.beta2 + (
-            1 - self.beta2
-        ) * np.power(g1, 2)
-
-        l_m_corrected = self.layers[t].l_m / (1 - np.power(self.beta1, self.e))
-        l_v_corrected = self.layers[t].l_v / (1 - np.power(self.beta2, self.e))
-        w1_update = l_m_corrected / (np.sqrt(l_v_corrected) + self.epsilon)
-        weight_gradient[t] -= self.learning_rate * w1_update
-        return weight_gradient, bias_gradient
+    # def adam(self, t, weight_gradient, bias_gradient):
+    #    g1 = weight_gradient[t].T.dot(self.deltas[t])
+    #
+    #    self.layers[t].l_m = self.layers[t].l_m * self.beta1 + (1 - self.beta1) * g1
+    #
+    #    self.layers[t].l_v = self.layers[t].l_v * self.beta2 + (
+    #        1 - self.beta2
+    #    ) * np.power(g1, 2)
+    #
+    #    l_m_corrected = self.layers[t].l_m / (1 - np.power(self.beta1, self.e))
+    #    l_v_corrected = self.layers[t].l_v / (1 - np.power(self.beta2, self.e))
+    #    w1_update = l_m_corrected / (np.sqrt(l_v_corrected) + self.epsilon)
+    #    weight_gradient[t] -= self.learning_rate * w1_update
+    #    return weight_gradient, bias_gradient
 
     def _apply_backpropagation(self):
         bias_gradient = []
         weight_gradient = []
         for i in range(len(self.layers)):
             prev_activation = self.activations[i]
-            weight_gradient.append(np.outer(self.deltas[i], prev_activation))
-            bias_gradient.append(self.deltas[i])
-            weight_gradient, bias_gradient = self.adam(
-                i, weight_gradient, bias_gradient
+            weight_gradient.append(
+                self.calcul_weight_gradient(self.deltas[i], prev_activation)
             )
+            bias_gradient.append(self.deltas[i])
+            # weight_gradient, bias_gradient = self.adam(
+            #    i, weight_gradient, bias_gradient
+            # )
         return weight_gradient, bias_gradient
 
     def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
         weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
         bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
-        for e, (x, y) in enumerate(zip(X, Y)):
-            self.e = e + 1
+        for (x, y) in zip(X, Y):
             self._feedforward(x)
             self._calcul_backpropagation(y)
             new_weight_gradient, new_bias_gradient = self._apply_backpropagation()
@@ -274,8 +279,8 @@ class Network(DataPreprocessing):
                 bias_gradient[i] += new_bias_gradient[i]
 
         for layer, wg, bg in zip(self.layers, weight_gradient, bias_gradient):
-            layer.update_weights(wg / Y.size, learning_rate)
-            layer.update_biases(bg / Y.size, learning_rate)
+            layer.update_weights(layer.weights, wg / Y.size, learning_rate)
+            layer.update_biases(layer.biases, bg / Y.size, learning_rate)
 
     def _evaluate(self, start, X, Y, e: int = None, epochs: int = None):
         cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
@@ -340,7 +345,7 @@ class Network(DataPreprocessing):
         ).values()
         if input_dim is not None and layers_size is not None:
             self._init_layers(input_dim, layers_size)
-        self._init_adam()
+        # self._init_adam()
 
     """
     Public Methods

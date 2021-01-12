@@ -56,14 +56,15 @@ class Math:
     """
 
     @staticmethod
-    @jit(forceobj=True)
+    @jit(nopython=True)
     def d_sigmoid(z):
-        return Math.sigmoid(z) * (1 - Math.sigmoid(z))
+        sig_z = 1.0 / (1.0 + np.exp(-z))
+        return sig_z * (1 - sig_z)
 
     @staticmethod
-    @jit(forceobj=True)
+    @jit(nopython=True)
     def d_tanh(z):
-        return 1 - np.power(Math.tanh(z), 2)
+        return 1 - np.power((np.exp(z) - np.exp(-z)) / (np.exp(z) + np.exp(-z)), 2)
 
     @staticmethod
     @jit(nopython=True)
@@ -75,7 +76,6 @@ class Math:
     def d_leaky_relu(z):
         return np.array([1 if zi > 0 else 0.2 for zi in z])
 
-    @jit(nopython=True)
     def d_prelu(self, z):
         return np.array([1 if zi > 0 else self.learning_rate for zi in z])
 
@@ -104,3 +104,21 @@ class Math:
     @jit(nopython=True)
     def soft_max(Z):
         return np.exp(Z) / np.sum(np.exp(Z))
+
+    """
+    OPTIMIZATION UTILS
+    """
+
+    @staticmethod
+    @jit(nopython=True)
+    def calcul_deltas(activation_prime, W, last_delta):
+        return activation_prime * np.dot(W.T, last_delta)
+
+    @staticmethod
+    @jit(nopython=True)
+    def calcul_weight_gradient(delta, prev_activation):
+        return np.outer(delta, prev_activation)
+
+    """
+    OUTPUT
+    """
