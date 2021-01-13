@@ -111,14 +111,15 @@ class Math:
 
     @staticmethod
     @jit(nopython=True)
-    def calcul_deltas(activation_prime, W, last_delta):
+    def get_output_delta(a, target):
+        return a - target
+
+    @staticmethod
+    @jit(nopython=True)
+    def get_deltas(activation_prime, W, last_delta):
         return activation_prime * np.dot(W.T, last_delta)
 
     @staticmethod
     @jit(nopython=True)
-    def calcul_weight_gradient(delta, prev_activation):
+    def get_weight_gradient(delta, prev_activation):
         return np.outer(delta, prev_activation)
-
-    """
-    OUTPUT
-    """
