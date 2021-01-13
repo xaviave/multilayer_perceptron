@@ -26,7 +26,6 @@ class Network(DataPreprocessing):
     activations: list = []
     layers_size: list = []
     weighted_sums: list = []
-    best_acc: list = [0, 0]
     best_loss: list = [0, 0]
     default_model_file: str = "data/models/default_model.npy"
 
@@ -330,10 +329,12 @@ class Network(DataPreprocessing):
                 )
                 self._train_batch(X_batch, Y_batch, self.learning_rate)
             self._evaluate(start, X, Y, e=e, epochs=self.epochs)
-            if np.mean(self.loss[-10:]) < 0.08:
+            if self.best_loss[0] < self.loss[-1]:
+                self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
+            if np.mean(self.loss[-20:]) < 0.08:
                 break
+        self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
         logging.info(f"{self.name} finish")
-        self._visualize(self.epochs)
 
     def evaluate(self):
         start = datetime.datetime.now()

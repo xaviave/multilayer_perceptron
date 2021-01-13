@@ -11,6 +11,7 @@ def run():
     nn.train()
     nn.evaluate()
     nn.save_model()
+    nn._visualize(20000)
 
 
 if __name__ == "__main__":
