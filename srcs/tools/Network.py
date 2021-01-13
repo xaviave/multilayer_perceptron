@@ -139,11 +139,11 @@ class Network(DataPreprocessing):
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
 
-    def _init_adam(self, eta=0.01, beta1=0.9, beta2=0.999, epsilon=1e-8):
-        self.eta = eta
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.epsilon = epsilon
+    # def _init_adam(self, eta=0.01, beta1=0.9, beta2=0.999, epsilon=1e-8):
+    #    self.eta = eta
+    #    self.beta1 = beta1
+    #    self.beta2 = beta2
+    #    self.epsilon = epsilon
 
     def _shuffle(self, X, Y):
         c = np.c_[self.X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
@@ -182,7 +182,7 @@ class Network(DataPreprocessing):
             )
 
         _ = animation.FuncAnimation(
-            fig, animate, frames=epochs, blit=True, interval=0.5, repeat=False
+            fig, animate, frames=epochs, blit=True, interval=100, repeat=False
         )
         plt.show()
 
@@ -208,10 +208,6 @@ class Network(DataPreprocessing):
             f"\n{'-'*70}",
         )
 
-    @staticmethod
-    def _get_output_delta(a, target):
-        return a - target
-
     def _feedforward(self, x):
         self.activations = [x]
         self.weighted_sums = []
@@ -223,9 +219,7 @@ class Network(DataPreprocessing):
         self.predicted.append(self.activations[-1])
 
     def _calcul_backpropagation(self, y):
-        delta = self._get_output_delta(
-            self.activations[-1], self._to_one_hot(int(y), 2)
-        )
+        delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))
         deltas = [delta]
 
         nb_layers = len(self.layers) - 2
@@ -234,7 +228,7 @@ class Network(DataPreprocessing):
             next_layer = self.layers[i + 1]
             activation_prime = layer.activation_prime(self.weighted_sums[i])
             deltas.append(
-                self.calcul_deltas(activation_prime, next_layer.weights, deltas[-1])
+                self.get_deltas(activation_prime, next_layer.weights, deltas[-1])
             )
         self.deltas = list(reversed(deltas))
 
@@ -259,7 +253,7 @@ class Network(DataPreprocessing):
         for i in range(len(self.layers)):
             prev_activation = self.activations[i]
             weight_gradient.append(
-                self.calcul_weight_gradient(self.deltas[i], prev_activation)
+                self.get_weight_gradient(self.deltas[i], prev_activation)
             )
             bias_gradient.append(self.deltas[i])
             # weight_gradient, bias_gradient = self.adam(
@@ -291,12 +285,11 @@ class Network(DataPreprocessing):
             self._additional_metrics(predicted, Y)
         well = np.where(predicted == Y)[0]
         self.val_loss.append(well.shape[0] / Y.shape[0])
-        if self.loss[-1] < 0.08:
-            print("\033[94m")
         # if (e % 500) == 1:
         print(
             f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
         )
+        return True if self.loss[-1] < 0.08 else False
 
     """
     Predict
@@ -353,7 +346,6 @@ class Network(DataPreprocessing):
 
     def train(self, batch_size: int = 10):
         n = self.Y.size
-        watch_perf = int(self.epochs - (self.epochs / 10))
         for e in range(self.epochs):
             self.predicted = []
             start = datetime.datetime.now()
@@ -364,12 +356,9 @@ class Network(DataPreprocessing):
                     Y[batch_start : batch_start + batch_size],
                 )
                 self._train_batch(X_batch, Y_batch, self.learning_rate)
-            self._evaluate(start, X, Y, e=e, epochs=self.epochs)
-            if e > watch_perf and self.best_acc[0] < self.val_loss[-1]:
-                self.best_acc = [self.val_loss[-1], copy.deepcopy(self.layers)]
-            if e > watch_perf and self.best_loss[0] < self.loss[-1]:
-                self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
-        self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
+            if self._evaluate(start, X, Y, e=e, epochs=self.epochs):
+                break
+
         print(f"{self.name} finish")
         self._visualize(self.epochs)
 
