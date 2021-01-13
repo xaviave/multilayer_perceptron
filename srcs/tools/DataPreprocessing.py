@@ -7,15 +7,17 @@ import warnings
 import numpy as np
 import pandas as pd
 
+from tools.KNN import KNN
 from tools.Math import Math
 from tools.args.ArgParser import ArgParser
 
 from tools.args.FileCheckerAction import FileCheckerAction
 
+
 logging.getLogger().setLevel(logging.INFO)
 
 
-class DataPreprocessing(ArgParser, Math):
+class DataPreprocessing(ArgParser, Math, KNN):
     X: np.ndarray
     Y: np.ndarray
     X_test: np.ndarray
@@ -160,9 +162,9 @@ Models path: {self.model_path}
         return X
 
     def wbdc_preprocess(self):
+        self.X = self.knn_multi_column_imputer(self.df_dataset_train.to_numpy(), 5)
         self.Y = np.where(self.df_dataset_train.pop(1) == "M", 0, 1)
-        del self.df_dataset_train[0]
-        self.fix_data()
-        self.X = self.standardize(self.fix_data())
+        self.X = self.X[:, :-1]
+        self.X = self.standardize(self.X)
         self.X_test = self.X
         self.Y_test = self.Y
