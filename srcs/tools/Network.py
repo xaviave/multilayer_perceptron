@@ -318,6 +318,7 @@ class Network(DataPreprocessing):
     def train(self, batch_size: int = 10):
         logging.info(f"Start training - {self.epochs} epochs")
         n = self.Y.size
+        watch_perf = int(self.epochs - (self.epochs / 10))
         for e in range(self.epochs):
             self.predicted = []
             start = datetime.datetime.now()
@@ -329,7 +330,7 @@ class Network(DataPreprocessing):
                 )
                 self._train_batch(X_batch, Y_batch, self.learning_rate)
             self._evaluate(start, X, Y, e=e, epochs=self.epochs)
-            if self.best_loss[0] < self.loss[-1]:
+            if (e > watch_perf or self.loss[-1] < 0.08) and self.best_loss[0] < self.loss[-1]:
                 self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
             if np.mean(self.loss[-20:]) < 0.08:
                 break
