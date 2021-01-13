@@ -13,12 +13,6 @@ from tools.DataPreprocessing import DataPreprocessing
 
 
 class Network(DataPreprocessing):
-    eta: float
-    beta1: float
-    beta2: float
-    epsilon: float
-
-    e: int = 0
     input_dim: int
 
     deltas: list
@@ -140,12 +134,6 @@ class Network(DataPreprocessing):
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
 
-    # def _init_adam(self, eta=0.01, beta1=0.9, beta2=0.999, epsilon=1e-8):
-    #    self.eta = eta
-    #    self.beta1 = beta1
-    #    self.beta2 = beta2
-    #    self.epsilon = epsilon
-
     def _shuffle(self, X, Y):
         c = np.c_[self.X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
         np.random.shuffle(c)
@@ -233,21 +221,6 @@ class Network(DataPreprocessing):
             )
         self.deltas = list(reversed(deltas))
 
-    # def adam(self, t, weight_gradient, bias_gradient):
-    #    g1 = weight_gradient[t].T.dot(self.deltas[t])
-    #
-    #    self.layers[t].l_m = self.layers[t].l_m * self.beta1 + (1 - self.beta1) * g1
-    #
-    #    self.layers[t].l_v = self.layers[t].l_v * self.beta2 + (
-    #        1 - self.beta2
-    #    ) * np.power(g1, 2)
-    #
-    #    l_m_corrected = self.layers[t].l_m / (1 - np.power(self.beta1, self.e))
-    #    l_v_corrected = self.layers[t].l_v / (1 - np.power(self.beta2, self.e))
-    #    w1_update = l_m_corrected / (np.sqrt(l_v_corrected) + self.epsilon)
-    #    weight_gradient[t] -= self.learning_rate * w1_update
-    #    return weight_gradient, bias_gradient
-
     def _apply_backpropagation(self):
         bias_gradient = []
         weight_gradient = []
@@ -257,9 +230,6 @@ class Network(DataPreprocessing):
                 self.get_weight_gradient(self.deltas[i], prev_activation)
             )
             bias_gradient.append(self.deltas[i])
-            # weight_gradient, bias_gradient = self.adam(
-            #    i, weight_gradient, bias_gradient
-            # )
         return weight_gradient, bias_gradient
 
     def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
@@ -342,7 +312,6 @@ class Network(DataPreprocessing):
         ).values()
         if input_dim is not None and layers_size is not None:
             self._init_layers(input_dim, layers_size)
-        # self._init_adam()
 
     """
     Public Methods

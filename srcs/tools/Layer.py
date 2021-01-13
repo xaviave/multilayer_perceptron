@@ -18,8 +18,6 @@ class Layer(Math):
         self.pre_activation = self._weighted_sum
         self.activation = activation
         self.activation_prime = derivative
-        self.l_m = np.zeros((size, input_size))
-        self.l_v = np.zeros((size, input_size))
 
     """
     Public Methods
