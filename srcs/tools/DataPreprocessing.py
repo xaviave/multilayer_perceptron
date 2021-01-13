@@ -2,6 +2,7 @@ import datetime
 import os
 import logging
 import sys
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -68,8 +69,7 @@ class DataPreprocessing(ArgParser, Math):
             self.dataset_test_file == self.default_dataset_file
             or self.dataset_train_file == self.default_dataset_file
         ):
-            # logging.info("Using default dataset CSV file")
-            pass
+            logging.info("Using default dataset CSV file")
 
     """
     Private Methods
@@ -90,18 +90,21 @@ class DataPreprocessing(ArgParser, Math):
 
     def _save_npy(self, file_name: str, data):
         try:
-            np.save(file_name, data, allow_pickle=True)
+            warnings.simplefilter("default")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                np.save(file_name, data, allow_pickle=True)
         except Exception as e:
             self._handle_error(exception=e)
 
     def _get_csv_file(self, file_path: str) -> pd.DataFrame:
         start = datetime.datetime.now()
-        # logging.info(f"Reading dataset from file: {file_path}")
+        logging.info(f"Reading dataset from file: {file_path}")
         try:
             return pd.read_csv(f"{os.path.abspath(file_path)}", header=None)
         except Exception:
             self._handle_error(message=f"Error while processing {file_path}")
-        # logging.info(f"data loaded: {datetime.datetime.now() - start}")
+        logging.info(f"data loaded: {datetime.datetime.now() - start}")
 
     def __init__(self):
         super().__init__(prog=self.prog_name)

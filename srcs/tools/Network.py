@@ -1,5 +1,6 @@
 import copy
 import datetime
+import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -271,7 +272,10 @@ class Network(DataPreprocessing):
         weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
         bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
         for (x, y) in zip(X, Y):
-            self._feedforward(x)
+            warnings.simplefilter("default")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self._feedforward(x)
             self._calcul_backpropagation(y)
             new_weight_gradient, new_bias_gradient = self._apply_backpropagation()
             for i in range(len(self.layers)):
