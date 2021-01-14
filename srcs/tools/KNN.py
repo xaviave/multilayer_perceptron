@@ -6,12 +6,28 @@ import numpy as np
 
 class KNN:
     @staticmethod
+    def arange_array(dataset, clear_dt, columns):
+        store = np.zeros(shape=(dataset.shape[0], dataset.shape[1] - clear_dt.shape[1]))
+        for i, c in enumerate(columns):
+            store[:, i] = dataset[:, c]
+        return np.array(
+            np.c_[clear_dt.reshape(len(clear_dt), -1), store.reshape(len(store), -1)],
+            dtype=float,
+        )
+
+    @staticmethod
+    def rearange_array(dataset, initial_colomns, columns):
+        index = list(range(dataset.shape[1] - len(columns)))
+        for i, c in zip(initial_colomns, columns):
+            index.insert(i, c)
+        new_dataset = np.zeros(dataset.shape)
+        for i, c in enumerate(index):
+            new_dataset[:, i] = dataset[:, c]
+        return np.array(new_dataset, dtype=float)
+
+    @staticmethod
     def _euclidean_distance(point1, point2):
         return np.sqrt(np.sum(np.power(point1 - point2, 2)))
-        # sum_squared_distance = 0
-        # for i in range(len(point1)):
-        #     sum_squared_distance += math.pow(point1[i] - point2[i], 2)
-        # return math.sqrt(sum_squared_distance)
 
     def _knn(self, dataset, query, k, distance_fn):
         neighbor_distances_and_indices = np.array(
@@ -22,29 +38,33 @@ class KNN:
             for r in sorted(neighbor_distances_and_indices, key=lambda x: x[1])[:k]
         ]
 
-    # numpy.linalg.norm(a - b) eculidan_distance
-    def knn_imputer(self, dataset, column, queries, k):
+    def knn_imputer(self, dataset, column, queries, k, to_fill, rd):
         for i, q in enumerate(queries):
-            tmp = np.delete(q.copy(), column)
             indexes = self._knn(
                 dataset=dataset,
-                query=tmp,
+                query=q,
                 k=k,
                 distance_fn=self._euclidean_distance,
             )
-            selected = dataset[indexes]
-            queries[i][column] = np.mean(selected[:, column])
-        return queries
+            selected = rd[indexes]
+            to_fill[i][column] = np.mean(selected[:, column])
+        return to_fill
 
     def knn_multi_column_imputer(self, dataset, k):
-        np.set_printoptions(threshold=sys.maxsize)
-        dataset = np.delete(dataset, 0, 1)
-        dataset[:, 0] = np.where(dataset[:, 0] == "M", -1, -2)
-        good = dataset[(dataset != 0).all(axis=-1)]
-        for i in range(dataset.shape[1]):
-            c = dataset[:, i] == 0
-            if len(dataset[c]) > 0:
-                queries = dataset[c]
-                up = self.knn_imputer(np.delete(good.copy(), i, 1), i, queries, k)
-                dataset[c] = up
-        return np.array(dataset, dtype=float)
+        initial_columns = np.unique(np.argwhere(np.isnan(dataset)).T[1])
+        dataset = self.arange_array(
+            dataset,
+            np.ma.compress_cols(np.ma.masked_invalid(dataset.copy())),
+            initial_columns,
+        )
+        indexes = np.unique(np.argwhere(np.isnan(dataset)).T[0])
+        columns = np.unique(np.argwhere(np.isnan(dataset)).T[1])
+        queries = dataset[np.isnan(dataset).any(axis=1)]
+        good = dataset[~np.isnan(dataset).any(axis=1)]
+        ds = np.ma.compress_cols(np.ma.masked_invalid(good[:, :-6].copy()))
+        tmp_queries = np.ma.compress_cols(np.ma.masked_invalid(queries.copy()))
+        for i in columns:
+            queries = self.knn_imputer(ds, i, tmp_queries, k, queries, good)
+        for i, q in enumerate(indexes):
+            dataset[q] = queries[i]
+        return self.rearange_array(dataset, initial_columns, columns)

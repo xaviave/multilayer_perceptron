@@ -27,7 +27,7 @@ class Network(DataPreprocessing):
     layers_size: list = []
     weighted_sums: list = []
     best_loss: list = [0, 0]
-    default_model_file: str = "data/models/default_model.npy"
+    default_model_file: str = "data/models/default_model"
 
     """
     Override Methods
@@ -94,6 +94,14 @@ class Network(DataPreprocessing):
             help=f"Provide dataset NPY file - Using '{self.default_model_file}' as default model file",
             dest="model_file",
         )
+        parser.add_argument(
+            "-n",
+            "--name",
+            type=str,
+            default="0",
+            help=f"Provide name for model saver",
+            dest="model_name_file",
+        )
         self._activation_func_arg(parser)
 
     """
@@ -134,8 +142,9 @@ class Network(DataPreprocessing):
             self._add_layer(s)
         self.layers[-1].activation = self.soft_max
 
-    def _shuffle(self, X, Y):
-        c = np.c_[self.X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
+    @staticmethod
+    def _shuffle(X, Y):
+        c = np.c_[X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
         np.random.shuffle(c)
         return (
             c[:, : X.size // len(X)].reshape(X.shape),
@@ -302,8 +311,9 @@ class Network(DataPreprocessing):
         self.wbdc_preprocess()
         self.verbose = self.get_args("verbose", default_value=0)
         self.model_file = self.get_args(
-            "model_file", default_value=self.default_model_file
+            "model_file", default_value=f"{self.default_model_file}_{self.name}.npy"
         )
+        self.name = self.get_args("model_name_file", default_value="0")
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
             default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
@@ -330,9 +340,11 @@ class Network(DataPreprocessing):
                 )
                 self._train_batch(X_batch, Y_batch, self.learning_rate)
             self._evaluate(start, X, Y, e=e, epochs=self.epochs)
-            if (e > watch_perf or self.loss[-1] < 0.08) and self.best_loss[0] < self.loss[-1]:
+            if (e > watch_perf or self.loss[-1] < 0.08) and self.best_loss[
+                0
+            ] < self.loss[-1]:
                 self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
-            if np.mean(self.loss[-20:]) < 0.08:
+            if np.mean(self.loss[-50:]) < 0.075:
                 break
         self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
         logging.info(f"{self.name} finish")
@@ -340,7 +352,10 @@ class Network(DataPreprocessing):
     def evaluate(self):
         start = datetime.datetime.now()
         X, Y = self._shuffle(self.X_test, self.Y_test)
-        self.predicted = [self._predict_feedforward(x) for x in X]
+        warnings.simplefilter("default")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.predicted = [self._predict_feedforward(x) for x in X]
         self._evaluate(start, X, Y)
 
     """
@@ -350,7 +365,8 @@ class Network(DataPreprocessing):
     def save_model(self, model_file: str = default_model_file):
         model = [(self.input_dim, self.layers_size)]
         model.extend([(l.weights.tolist(), l.biases.tolist()) for l in self.layers])
-        self._save_npy(model_file, model)
+        logging.info(f"Model saved in '{model_file}_{self.name}.npy'")
+        self._save_npy(f"{model_file}_{self.name}.npy", model)
 
     def load_model(self):
         raw_model = self._load_npy(self.model_file)

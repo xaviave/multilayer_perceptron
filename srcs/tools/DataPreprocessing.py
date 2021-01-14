@@ -153,18 +153,26 @@ Models path: {self.model_path}
         y = df.pop(0)
         return df.to_numpy() / 255, y
 
-    def fix_data(self):
-        X = self.df_dataset_train.to_numpy()
+    def fix_data(self, df):
+        X = df.to_numpy()
         X_ = X[(X != 0).all(axis=-1)]
         for i in range(X.shape[1]):
             m = np.mean(X_[i])
             X[X[:, i] == 0] = m
         return X
 
+    def split_dataset(self, dataset):
+        np.set_printoptions(threshold=sys.maxsize)
+        dataset = np.delete(dataset, 0, axis=1)
+        dataset[dataset == 0] = np.nan
+        dataset[:, 0] = np.where(dataset[:, 0] == "M", 0, 1)
+        X = self.knn_multi_column_imputer(np.array(dataset, dtype=float), 2)
+        # from sklearn.impute import KNNImputer
+        #
+        # imputer = KNNImputer(n_neighbors=2)
+        # X_ = imputer.fit_transform(dataset)
+        return X[:, 0], self.standardize(X[:, 1:])
+
     def wbdc_preprocess(self):
-        self.X = self.knn_multi_column_imputer(self.df_dataset_train.to_numpy(), 5)
-        self.Y = np.where(self.df_dataset_train.pop(1) == "M", 0, 1)
-        self.X = self.X[:, :-1]
-        self.X = self.standardize(self.X)
-        self.X_test = self.X
-        self.Y_test = self.Y
+        self.Y, self.X = self.split_dataset(self.df_dataset_train.to_numpy())
+        self.Y_test, self.X_test = self.split_dataset(self.df_dataset_test.to_numpy())
