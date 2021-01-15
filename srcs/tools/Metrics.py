@@ -1,8 +1,10 @@
+import datetime
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-from matplotlib import animation
 from tabulate import tabulate
+from matplotlib import animation
 
 from tools.Math import Math
 from tools.args.ArgParser import ArgParser
@@ -60,7 +62,7 @@ class Metrics(ArgParser):
     @staticmethod
     def _f1_score(TP, FP, FN):
         if TP + FP == 0 or TP + FN == 0:
-            return 'nan'
+            return "nan"
         precision = TP / (TP + FP)
         rappel = TP / (TP + FN)
         return 2 / ((1 / precision) + (1 / rappel))
@@ -80,3 +82,28 @@ class Metrics(ArgParser):
             ),
             f"\n{'-'*70}",
         )
+
+    def _evaluate(self, start, X, Y, e, epochs):
+        self.loss.append(
+            self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y)
+        )
+        self.val_loss.append(
+            self._get_loss(
+                [self._predict_feedforward(x) for x in self.X_val], self.Y_val
+            )
+        )
+        time = datetime.datetime.now() - start
+        if self.verbose:
+            self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
+        print(
+            f"""
+epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {time}
+"""
+        )
+
+    def _evaluate_predict(self, start, X, Y):
+        loss = self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y)
+        time = datetime.datetime.now() - start
+        if self.verbose:
+            self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
+        print(f"Predict model | loss: {loss:.4f}  - acc {'loic'} - time: {time}")

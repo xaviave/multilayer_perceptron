@@ -157,6 +157,15 @@ Models path: {self.model_path}
     Public Methods
     """
 
+    @staticmethod
+    def shuffle(X, Y):
+        c = np.c_[X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
+        np.random.shuffle(c)
+        return (
+            c[:, : X.size // len(X)].reshape(X.shape),
+            c[:, X.size // len(X) :].reshape(Y.shape),
+        )
+
     def write_to_csv(self, file_name: str, dataset: list, columns: list):
         tmp_dataset = pd.DataFrame(data=dataset)
         tmp_dataset.index.name = "Index"
@@ -170,3 +179,6 @@ Models path: {self.model_path}
     def wbdc_preprocess(self):
         self.Y, self.X = self._split_dataset(self.df_dataset_train.to_numpy())
         self.Y_test, self.X_test = self._split_dataset(self.df_dataset_test.to_numpy())
+        self.Y, self.X, self.Y_val, self.X_val = self._create_validation_dataset(
+            self.split, *self.shuffle(self.X, self.Y)
+        )

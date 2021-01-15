@@ -97,24 +97,14 @@ class Network(Metrics, DataPreprocessing):
     """
 
     def _init_args(self):
+        self.model_file = self.get_args("model_file")
         self.name = self.get_args("model_name_file", default_value="main")
-        model_file = self.get_args("model_file", default_value=self.default_model_file)
-        self.model_file = f"{model_file}_{self.name}.npy"
+        if self.model_file is None:
+            self.model_file = f"{self.default_model_file}_{self.name}.npy"
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
             default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
         ).values()
-
-    @staticmethod
-    @jit(nopython=True)
-    def _to_one_hot(y: int, k: int) -> np.array:
-        """
-        Convertit un entier en vecteur "one-hot".
-        to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
-        """
-        one_hot = np.zeros(k)
-        one_hot[y] = 1
-        return one_hot
 
     def _add_layer(self, size: int):
         """
@@ -140,16 +130,18 @@ class Network(Metrics, DataPreprocessing):
         self.layers[-1].activation = self.soft_max
 
     @staticmethod
-    def _shuffle(X, Y):
-        c = np.c_[X.reshape(len(X), -1), Y.reshape(len(Y), -1)]
-        np.random.shuffle(c)
-        return (
-            c[:, : X.size // len(X)].reshape(X.shape),
-            c[:, X.size // len(X) :].reshape(Y.shape),
-        )
+    @jit(nopython=True)
+    def _to_one_hot(y: int, k: int) -> np.array:
+        """
+        Convertit un entier en vecteur "one-hot".
+        to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
+        """
+        one_hot = np.zeros(k)
+        one_hot[y] = 1
+        return one_hot
 
-    def _feedforward(self, x):
-        self.activations = [x]
+    def _feedforward(self, X):
+        self.activations = [X]
         self.weighted_sums = []
         for layer in self.layers:
             self.weighted_sums.append(
@@ -169,15 +161,14 @@ class Network(Metrics, DataPreprocessing):
             deltas.append(
                 self.get_deltas(activation_prime, next_layer.weights, deltas[-1])
             )
-        self.deltas = list(reversed(deltas))
+        self.deltas = deltas[::-1]
 
     def _apply_backpropagation(self):
         bias_gradient = []
         weight_gradient = []
         for i in range(len(self.layers)):
-            prev_activation = self.activations[i]
             weight_gradient.append(
-                self.get_weight_gradient(self.deltas[i], prev_activation)
+                self.get_weight_gradient(self.deltas[i], self.activations[i])
             )
             bias_gradient.append(self.deltas[i])
         return weight_gradient, bias_gradient
@@ -204,17 +195,6 @@ class Network(Metrics, DataPreprocessing):
         cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
         loss = self.cross_entropy(cross_y, np.array(predicted))
         return loss
-
-    def _evaluate(self, start, X, Y, e: int = None, epochs: int = None):
-        self.loss.append(self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y))
-        time = datetime.datetime.now() - start
-        if self.verbose:
-            self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
-        if e is not None:
-            print(f"epoch {e + 1 if e is not None else None}/{epochs} - ", end="")
-        print(
-            f"loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {time}"
-        )
 
     """
     Predict
@@ -256,40 +236,39 @@ class Network(Metrics, DataPreprocessing):
     Public Methods
     """
 
+    def _launch_batch_train(self, X, Y, batch_size):
+        n = Y.size
+        for batch_start in range(0, n, batch_size):
+            X_batch = X[batch_start : batch_start + batch_size]
+            Y_batch = Y[batch_start : batch_start + batch_size]
+            self._train_batch(X_batch, Y_batch, self.learning_rate)
+
+    def _check_loss(self, e, watch_perf):
+        if (e > watch_perf or self.loss[-1] < 0.08) and self.best_loss[0] < self.loss[
+            -1
+        ]:
+            self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
+        return True if np.mean(self.loss[-10:]) < 0.075 else False
+
     def train(self, batch_size: int = 10):
         logging.info(f"Start training - {self.epochs} epochs")
-        self.Y, self.X, Y_val, X_val = self._create_validation_dataset(
-            self.split, *self._shuffle(self.X, self.Y)
-        )
         watch_perf = int(self.epochs - (self.epochs / 10))
         for e in range(self.epochs):
-            self.predicted = []
             start = datetime.datetime.now()
-            X, Y = self._shuffle(self.X, self.Y)
-            n = Y.size
-            for batch_start in range(0, n, batch_size):
-                X_batch = X[batch_start : batch_start + batch_size]
-                Y_batch = Y[batch_start : batch_start + batch_size]
-                self._train_batch(X_batch, Y_batch, self.learning_rate)
-            self.val_loss.append(self._get_loss([self._predict_feedforward(x) for x in X_val], Y_val))
-            self._evaluate(start, X, Y, e=e, epochs=self.epochs)
-            if (e > watch_perf or self.loss[-1] < 0.08) and self.best_loss[
-                0
-            ] < self.loss[-1]:
-                self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
-            if np.mean(self.loss[-10:]) < 0.075:
+
+            X_train, Y_train = self.shuffle(self.X, self.Y)
+            self._launch_batch_train(X_train, Y_train, batch_size)
+            self._evaluate(start, X_train, Y_train, e=e, epochs=self.epochs)
+            if self._check_loss(e, watch_perf):
                 break
+
         self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
         logging.info(f"{self.name} finish")
 
     def evaluate(self):
         start = datetime.datetime.now()
-        X, Y = self._shuffle(self.X_test, self.Y_test)
-        warnings.simplefilter("default")
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            self.predicted = [self._predict_feedforward(x) for x in X]
-        self._evaluate(start, X, Y)
+        X, Y = self.shuffle(self.X_test, self.Y_test)
+        self._evaluate_predict(start, X, Y)
 
     """
     File Handling Method
