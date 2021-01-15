@@ -61,11 +61,12 @@ class Metrics(ArgParser):
 
     @staticmethod
     def _f1_score(TP, FP, FN):
-        if TP + FP == 0 or TP + FN == 0:
+        try:
+            precision = TP / (TP + FP)
+            rappel = TP / (TP + FN)
+            return 2 / ((1 / precision) + (1 / rappel))
+        except ZeroDivisionError:
             return "nan"
-        precision = TP / (TP + FP)
-        rappel = TP / (TP + FN)
-        return 2 / ((1 / precision) + (1 / rappel))
 
     def additional_metrics(self, predicted, Y):
         TP = np.where((Y == predicted) & (Y == 1))[0].shape[0]
