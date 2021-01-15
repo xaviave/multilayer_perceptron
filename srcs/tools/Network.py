@@ -4,16 +4,14 @@ import logging
 import warnings
 
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 from numba import jit
-from tabulate import tabulate
 
 from tools.Layer import Layer
+from tools.Metrics import Metrics
 from tools.DataPreprocessing import DataPreprocessing
 
 
-class Network(DataPreprocessing):
+class Network(Metrics, DataPreprocessing):
     input_dim: int
 
     deltas: list
@@ -79,14 +77,6 @@ class Network(DataPreprocessing):
     def _add_parser_args(self, parser):
         super()._add_parser_args(parser)
         parser.add_argument(
-            "-v",
-            "--verbose",
-            action="store_const",
-            const=1,
-            help=f"Add more evaluation metrics",
-            dest="verbose",
-        )
-        parser.add_argument(
             "-m",
             "--model",
             type=str,
@@ -107,7 +97,6 @@ class Network(DataPreprocessing):
     """
 
     def _init_args(self):
-        self.verbose = self.get_args("verbose", default_value=0)
         self.name = self.get_args("model_name_file", default_value="main")
         model_file = self.get_args("model_file", default_value=self.default_model_file)
         self.model_file = f"{model_file}_{self.name}.npy"
@@ -157,61 +146,6 @@ class Network(DataPreprocessing):
         return (
             c[:, : X.size // len(X)].reshape(X.shape),
             c[:, X.size // len(X) :].reshape(Y.shape),
-        )
-
-    def _visualize(self, epochs):
-        fig = plt.figure(figsize=(10, 7))
-        ep = range(self.epochs)
-        val_loss = [v * 100 for v in self.val_loss]
-
-        plt.subplot(1, 2, 1)
-        plt.title("Loss")
-        plt.xlabel("epochs")
-        (line,) = plt.plot([], [], c="r")
-        plt.ylim(min(self.loss) - 0.2, max(self.loss) + 0.2)
-        plt.xlim(-10, epochs + 10)
-
-        plt.subplot(1, 2, 2)
-        plt.title("Accuracy")
-        plt.xlabel("epochs")
-        plt.ylabel("percents")
-        (line2,) = plt.plot([], [], c="b")
-        plt.ylim(min(val_loss) - 5, max(val_loss) + 5)
-        plt.xlim(-10, epochs + 10)
-
-        def animate(i):
-            line.set_data(ep[:i], self.loss[:i])
-            line2.set_data(ep[:i], val_loss[:i])
-            return (
-                line,
-                line2,
-            )
-
-        _ = animation.FuncAnimation(
-            fig, animate, frames=epochs, blit=True, interval=1, repeat=False
-        )
-        plt.show()
-
-    @staticmethod
-    def _f1_score(TP, FP, FN):
-        precision = TP / (TP + FP)
-        rappel = TP / (TP + FN)
-        return 2 / ((1 / precision) + (1 / rappel))
-
-    def _additional_metrics(self, predicted, Y):
-        TP = np.where((Y == predicted) & (Y == 1))[0].shape[0]
-        FP = np.where((Y != predicted) & (predicted == 1))[0].shape[0]
-        TN = np.where((Y == predicted) & (Y == 0))[0].shape[0]
-        FN = np.where((Y != predicted) & (predicted == 0))[0].shape[0]
-        print(
-            f"F1 score = {self._f1_score(TP, FP, FN) if TP + FP != 0 and TP + FN != 0 else 'nan'}",
-            f"Mean squared Error = {self.mean_squared(Y, predicted)}\n",
-            "Confusion Matrix\n",
-            tabulate(
-                [["False", TN, FP], ["True", FN, TP]],
-                headers=[f"sample size={Y.shape[0]}", "False", "True"],
-            ),
-            f"\n{'-'*70}",
         )
 
     def _feedforward(self, x):
@@ -272,11 +206,10 @@ class Network(DataPreprocessing):
         return loss
 
     def _evaluate(self, start, X, Y, e: int = None, epochs: int = None):
-        predicted = np.array([self._predict_feedforward(x) for x in X])
-        self.loss.append(self._get_loss(predicted, Y))
+        self.loss.append(self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y))
         time = datetime.datetime.now() - start
         if self.verbose:
-            self._additional_metrics(predicted, Y)
+            self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
         if e is not None:
             print(f"epoch {e + 1 if e is not None else None}/{epochs} - ", end="")
         print(
