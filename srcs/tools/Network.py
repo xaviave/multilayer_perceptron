@@ -19,7 +19,7 @@ class Network(DataPreprocessing):
     deltas: list
     layers: list
     loss: list = []
-    times: list = []
+    time: datetime.timedelta
 
     val_loss: list = []
     predicted: list = []
@@ -109,9 +109,7 @@ class Network(DataPreprocessing):
     def _init_args(self):
         self.verbose = self.get_args("verbose", default_value=0)
         self.name = self.get_args("model_name_file", default_value="main")
-        model_file = self.get_args(
-            "model_file", default_value=self.default_model_file
-        )
+        model_file = self.get_args("model_file", default_value=self.default_model_file)
         self.model_file = f"{model_file}_{self.name}.npy"
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
@@ -224,7 +222,6 @@ class Network(DataPreprocessing):
                 self._weighted_sum(self.activations[-1], layer.weights, layer.biases)
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
-        self.predicted.append(self.activations[-1])
 
     def _calcul_backpropagation(self, y):
         delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))
@@ -269,19 +266,21 @@ class Network(DataPreprocessing):
             layer.update_weights(layer.weights, wg / Y.size, learning_rate)
             layer.update_biases(layer.biases, bg / Y.size, learning_rate)
 
-    def _evaluate(self, start, X, Y, e: int = None, epochs: int = None):
+    def _get_loss(self, predicted, Y):
         cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
-        self.loss.append(self.cross_entropy(cross_y, np.array(self.predicted)))
-        self.times.append(datetime.datetime.now() - start)
-        predicted = np.array([self._predict(x) for x in X])
+        loss = self.cross_entropy(cross_y, np.array(predicted))
+        return loss
+
+    def _evaluate(self, start, X, Y, e: int = None, epochs: int = None):
+        predicted = np.array([self._predict_feedforward(x) for x in X])
+        self.loss.append(self._get_loss(predicted, Y))
+        time = datetime.datetime.now() - start
         if self.verbose:
             self._additional_metrics(predicted, Y)
-        well = np.where(predicted == Y)[0]
-        self.val_loss.append(well.shape[0] / Y.shape[0])
         if e is not None:
             print(f"epoch {e + 1 if e is not None else None}/{epochs} - ", end="")
         print(
-            f"loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
+            f"loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {time}"
         )
 
     """
@@ -326,24 +325,26 @@ class Network(DataPreprocessing):
 
     def train(self, batch_size: int = 10):
         logging.info(f"Start training - {self.epochs} epochs")
-        n = self.Y.size
+        self.Y, self.X, Y_val, X_val = self._create_validation_dataset(
+            self.split, *self._shuffle(self.X, self.Y)
+        )
         watch_perf = int(self.epochs - (self.epochs / 10))
         for e in range(self.epochs):
             self.predicted = []
             start = datetime.datetime.now()
             X, Y = self._shuffle(self.X, self.Y)
+            n = Y.size
             for batch_start in range(0, n, batch_size):
-                X_batch, Y_batch = (
-                    X[batch_start : batch_start + batch_size],
-                    Y[batch_start : batch_start + batch_size],
-                )
+                X_batch = X[batch_start : batch_start + batch_size]
+                Y_batch = Y[batch_start : batch_start + batch_size]
                 self._train_batch(X_batch, Y_batch, self.learning_rate)
+            self.val_loss.append(self._get_loss([self._predict_feedforward(x) for x in X_val], Y_val))
             self._evaluate(start, X, Y, e=e, epochs=self.epochs)
             if (e > watch_perf or self.loss[-1] < 0.08) and self.best_loss[
                 0
             ] < self.loss[-1]:
                 self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
-            if np.mean(self.loss[-50:]) < 0.075:
+            if np.mean(self.loss[-10:]) < 0.075:
                 break
         self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
         logging.info(f"{self.name} finish")

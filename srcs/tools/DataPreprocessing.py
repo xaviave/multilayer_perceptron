@@ -61,7 +61,7 @@ class DataPreprocessing(ArgParser, Math, KNN):
             "-s",
             "--split_train",
             type=int,
-            default=0.2,
+            default=0.3,
             help=f"Split train dataset by X to create a test dataset\nIf provided, override '-dt' option",
         )
 
@@ -120,7 +120,7 @@ class DataPreprocessing(ArgParser, Math, KNN):
         return X
 
     @staticmethod
-    def _create_validation_dataset(split, Y, X):
+    def _create_validation_dataset(split, X, Y):
         i = int(X.shape[0] - X.shape[0] * split)
         return Y[:i], X[:i], Y[i:], X[i:]
 
@@ -169,8 +169,4 @@ Models path: {self.model_path}
 
     def wbdc_preprocess(self):
         self.Y, self.X = self._split_dataset(self.df_dataset_train.to_numpy())
-        if self.split:
-            self.Y, self.X, self.Y_val, self.X_val = self._create_validation_dataset(
-                self.split, self.Y, self.X
-            )
         self.Y_test, self.X_test = self._split_dataset(self.df_dataset_test.to_numpy())

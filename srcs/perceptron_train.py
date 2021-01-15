@@ -2,7 +2,7 @@ from tools.Network import Network
 
 
 def run():
-    epochs = 1000
+    epochs = 10000
     nn = Network(
         input_dim=30,
         layers_size=[20, 18, 16, 14, 10, 2],
