@@ -27,7 +27,7 @@ class Network(DataPreprocessing):
     layers_size: list = []
     weighted_sums: list = []
     best_loss: list = [0, 0]
-    default_model_file: str = "data/models/default_model"
+    default_model_file: str = "data/models/model"
 
     """
     Override Methods
@@ -90,7 +90,6 @@ class Network(DataPreprocessing):
             "-m",
             "--model",
             type=str,
-            default=self.default_model_file,
             help=f"Provide dataset NPY file - Using '{self.default_model_file}' as default model file",
             dest="model_file",
         )
@@ -98,7 +97,6 @@ class Network(DataPreprocessing):
             "-n",
             "--name",
             type=str,
-            default="0",
             help=f"Provide name for model saver",
             dest="model_name_file",
         )
@@ -107,6 +105,18 @@ class Network(DataPreprocessing):
     """
     Private Methods
     """
+
+    def _init_args(self):
+        self.verbose = self.get_args("verbose", default_value=0)
+        self.name = self.get_args("model_name_file", default_value="main")
+        model_file = self.get_args(
+            "model_file", default_value=self.default_model_file
+        )
+        self.model_file = f"{model_file}_{self.name}.npy"
+        self.activation_func, self.derivative = self.get_args(
+            "type_activation",
+            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
+        ).values()
 
     @staticmethod
     @jit(nopython=True)
@@ -268,8 +278,10 @@ class Network(DataPreprocessing):
             self._additional_metrics(predicted, Y)
         well = np.where(predicted == Y)[0]
         self.val_loss.append(well.shape[0] / Y.shape[0])
+        if e is not None:
+            print(f"epoch {e + 1 if e is not None else None}/{epochs} - ", end="")
         print(
-            f"epoch {e + 1 if e is not None else None}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
+            f"loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {self.times[-1]}"
         )
 
     """
@@ -290,34 +302,21 @@ class Network(DataPreprocessing):
         input_dim: int = None,
         layers_size: list = None,
         epochs: int = 100,
-        learning_rate: float = 0.5,
-        name: str = "main",
+        learning_rate: float = 0.1,
     ):
-        print(
-            "\033[92m",
-            f"{name} init_network",
-            input_dim,
-            layers_size,
-            epochs,
-            learning_rate,
-            "\033[0m",
-        )
-        self.name = name
+
         self.layers = []
         self.epochs = epochs
         self.learning_rate = learning_rate
 
         super().__init__()
+        self._init_args()
         self.wbdc_preprocess()
-        self.verbose = self.get_args("verbose", default_value=0)
-        self.model_file = self.get_args(
-            "model_file", default_value=f"{self.default_model_file}_{self.name}.npy"
+        print(
+            "\033[92m",
+            f"{self.name} init_network {input_dim} {layers_size} {epochs} {learning_rate}",
+            "\033[0m",
         )
-        self.name = self.get_args("model_name_file", default_value="0")
-        self.activation_func, self.derivative = self.get_args(
-            "type_activation",
-            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
-        ).values()
         if input_dim is not None and layers_size is not None:
             self._init_layers(input_dim, layers_size)
 
@@ -362,11 +361,11 @@ class Network(DataPreprocessing):
     File Handling Method
     """
 
-    def save_model(self, model_file: str = default_model_file):
+    def save_model(self, model_file):
         model = [(self.input_dim, self.layers_size)]
         model.extend([(l.weights.tolist(), l.biases.tolist()) for l in self.layers])
-        logging.info(f"Model saved in '{model_file}_{self.name}.npy'")
-        self._save_npy(f"{model_file}_{self.name}.npy", model)
+        logging.info(f"Model saved in '{model_file}'")
+        self._save_npy(model_file, model)
 
     def load_model(self):
         raw_model = self._load_npy(self.model_file)

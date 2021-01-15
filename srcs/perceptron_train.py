@@ -5,13 +5,13 @@ def run():
     epochs = 1000
     nn = Network(
         input_dim=30,
-        layers_size=[30, 20, 10, 2],
+        layers_size=[20, 18, 16, 14, 10, 2],
         epochs=epochs,
-        learning_rate=0.1,
+        learning_rate=0.08,
     )
     nn.train()
     nn.evaluate()
-    nn.save_model()
+    nn.save_model(nn.model_file)
     # nn._visualize(epochs)
 
 

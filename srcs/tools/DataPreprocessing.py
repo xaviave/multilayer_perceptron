@@ -20,6 +20,8 @@ logging.getLogger().setLevel(logging.INFO)
 class DataPreprocessing(ArgParser, Math, KNN):
     X: np.ndarray
     Y: np.ndarray
+    X_val: np.ndarray
+    Y_val: np.ndarray
     X_test: np.ndarray
     Y_test: np.ndarray
     df_dataset_test: pd.DataFrame
@@ -59,7 +61,7 @@ class DataPreprocessing(ArgParser, Math, KNN):
             "-s",
             "--split_train",
             type=int,
-            default=0,
+            default=0.2,
             help=f"Split train dataset by X to create a test dataset\nIf provided, override '-dt' option",
         )
 
@@ -108,15 +110,32 @@ class DataPreprocessing(ArgParser, Math, KNN):
             self._handle_error(message=f"Error while processing {file_path}")
         logging.info(f"data loaded: {datetime.datetime.now() - start}")
 
+    @staticmethod
+    def _fix_data(df):
+        X = df.to_numpy()
+        X_ = X[(X != 0).all(axis=-1)]
+        for i in range(X.shape[1]):
+            m = np.mean(X_[i])
+            X[X[:, i] == 0] = m
+        return X
+
+    @staticmethod
+    def _create_validation_dataset(split, Y, X):
+        i = int(X.shape[0] - X.shape[0] * split)
+        return Y[:i], X[:i], Y[i:], X[i:]
+
+    def _split_dataset(self, dataset):
+        np.set_printoptions(threshold=sys.maxsize)
+        dataset = np.delete(dataset, 0, axis=1)
+        dataset[dataset == 0] = np.nan
+        dataset[:, 0] = np.where(dataset[:, 0] == "M", 0, 1)
+        X = self.knn_multi_column_imputer(np.array(dataset, dtype=float), 2)
+        return X[:, 0], self.standardize(X[:, 1:])
+
     def __init__(self):
         super().__init__(prog=self.prog_name)
         self.df_dataset_train = self._get_csv_file(self.dataset_train_file)
-        if 0 < self.split < 100:
-            self.split = int(len(self.df_dataset_train.index) * (self.split / 100))
-            self.df_dataset_test = self.df_dataset_train[self.split :]
-            self.df_dataset_train = self.df_dataset_train[: self.split]
-        else:
-            self.df_dataset_test = self._get_csv_file(self.dataset_test_file)
+        self.df_dataset_test = self._get_csv_file(self.dataset_test_file)
 
     def __str__(self):
         return f"""
@@ -148,31 +167,10 @@ Models path: {self.model_path}
         except Exception as e:
             self._handle_error(exception=e)
 
-    @staticmethod
-    def df_to_np(df):
-        y = df.pop(0)
-        return df.to_numpy() / 255, y
-
-    def fix_data(self, df):
-        X = df.to_numpy()
-        X_ = X[(X != 0).all(axis=-1)]
-        for i in range(X.shape[1]):
-            m = np.mean(X_[i])
-            X[X[:, i] == 0] = m
-        return X
-
-    def split_dataset(self, dataset):
-        np.set_printoptions(threshold=sys.maxsize)
-        dataset = np.delete(dataset, 0, axis=1)
-        dataset[dataset == 0] = np.nan
-        dataset[:, 0] = np.where(dataset[:, 0] == "M", 0, 1)
-        X = self.knn_multi_column_imputer(np.array(dataset, dtype=float), 2)
-        # from sklearn.impute import KNNImputer
-        #
-        # imputer = KNNImputer(n_neighbors=2)
-        # X_ = imputer.fit_transform(dataset)
-        return X[:, 0], self.standardize(X[:, 1:])
-
     def wbdc_preprocess(self):
-        self.Y, self.X = self.split_dataset(self.df_dataset_train.to_numpy())
-        self.Y_test, self.X_test = self.split_dataset(self.df_dataset_test.to_numpy())
+        self.Y, self.X = self._split_dataset(self.df_dataset_train.to_numpy())
+        if self.split:
+            self.Y, self.X, self.Y_val, self.X_val = self._create_validation_dataset(
+                self.split, self.Y, self.X
+            )
+        self.Y_test, self.X_test = self._split_dataset(self.df_dataset_test.to_numpy())
