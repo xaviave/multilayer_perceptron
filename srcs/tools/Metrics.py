@@ -26,7 +26,7 @@ class Metrics(ArgParser):
         super().__init__()
         self.verbose = self.get_args("verbose", default_value=0)
 
-    def visualizer(self, epochs, val_loss, loss):
+    def visualizer(self, epochs: int, val_loss: float, loss: float):
         fig = plt.figure(figsize=(10, 7))
         ep = range(epochs)
         val_loss = [v * 100 for v in val_loss]
@@ -46,7 +46,7 @@ class Metrics(ArgParser):
         plt.ylim(min(val_loss) - 5, max(val_loss) + 5)
         plt.xlim(-10, epochs + 10)
 
-        def animate(i, loss, val_loss):
+        def animate(i: int, loss: float, val_loss: float):
             line.set_data(ep[:i], loss[:i])
             line2.set_data(ep[:i], val_loss[:i])
             return (
@@ -60,7 +60,7 @@ class Metrics(ArgParser):
         plt.show()
 
     @staticmethod
-    def _f1_score(TP, FP, FN):
+    def _f1_score(TP: int, FP: int, FN: int):
         try:
             precision = TP / (TP + FP)
             rappel = TP / (TP + FN)
@@ -68,7 +68,7 @@ class Metrics(ArgParser):
         except ZeroDivisionError:
             return "nan"
 
-    def additional_metrics(self, predicted, Y):
+    def additional_metrics(self, predicted: np.ndarray, Y: np.ndarray):
         TP = np.where((Y == predicted) & (Y == 1))[0].shape[0]
         FP = np.where((Y != predicted) & (predicted == 1))[0].shape[0]
         TN = np.where((Y == predicted) & (Y == 0))[0].shape[0]
@@ -84,7 +84,7 @@ class Metrics(ArgParser):
             f"\n{'-'*70}",
         )
 
-    def _evaluate(self, start, X, Y, e, epochs):
+    def _evaluate(self, start: int, X: np.ndarray, Y: np.ndarray, e: int, epochs: int):
         self.loss.append(
             self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y)
         )
@@ -102,7 +102,7 @@ epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]
 """
         )
 
-    def _evaluate_predict(self, start, X, Y):
+    def _evaluate_predict(self, start: int, X: np.ndarray, Y: np.ndarray):
         loss = self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y)
         time = datetime.datetime.now() - start
         if self.verbose:

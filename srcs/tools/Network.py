@@ -8,10 +8,11 @@ from numba import jit
 
 from tools.Layer import Layer
 from tools.Metrics import Metrics
+from tools.Optimizer import Optimizer
 from tools.DataPreprocessing import DataPreprocessing
 
 
-class Network(Metrics, DataPreprocessing):
+class Network(Metrics, DataPreprocessing, Optimizer):
     input_dim: int
 
     deltas: list
@@ -31,14 +32,68 @@ class Network(Metrics, DataPreprocessing):
     Override Methods
     """
 
-    def _activation_func_arg(self, parser):
+    def _regularization_arg(self, parser):
+        regularization_group = parser.add_mutually_exclusive_group(required=False)
+        regularization_group.add_argument(
+            "-l1",
+            "--l1_laplacian",
+            action="store_const",
+            const=self.l1_laplacian,
+            help="Use Lasso Regression as regularization function (default)",
+            dest="type_regularization",
+        )
+        regularization_group.add_argument(
+            "-l2",
+            "--l2_gaussian",
+            action="store_const",
+            const=self.l2_gaussian,
+            help="Use Ridge Regression as regularization function",
+            dest="type_regularization",
+        )
+
+    def _optimizer_arg(self, parser):
+        optimizer_group = parser.add_mutually_exclusive_group(required=False)
+        optimizer_group.add_argument(
+            "-sgd",
+            "--vanilla",
+            action="store_const",
+            const=self.sgd,
+            help="Use Vanilla Stochastic Gradient Descent as optimizer function",
+            dest="type_optimizer",
+        )
+        optimizer_group.add_argument(
+            "-mom",
+            "--momentum",
+            action="store_const",
+            const=self.momentum,
+            help="Use Momentum as optimizer function",
+            dest="type_optimizer",
+        )
+        optimizer_group.add_argument(
+            "-rms",
+            "--rms_prop",
+            action="store_const",
+            const=self.rms_prop,
+            help="Use RMSprop as optimizer function",
+            dest="type_optimizer",
+        )
+        optimizer_group.add_argument(
+            "-ada",
+            "--adam",
+            action="store_const",
+            const=self.adam,
+            help="Use Adam as optimizer function (default)",
+            dest="type_optimizer",
+        )
+
+    def _activation_arg(self, parser):
         activation_group = parser.add_mutually_exclusive_group(required=False)
         activation_group.add_argument(
             "-sac",
             "--sigmoid",
             action="store_const",
             const={"activation": self.sigmoid, "derivative": self.d_sigmoid},
-            help="Use sigmoid as activation function (default value)",
+            help="Use sigmoid as activation function",
             dest="type_activation",
         )
         activation_group.add_argument(
@@ -46,7 +101,7 @@ class Network(Metrics, DataPreprocessing):
             "--tanh",
             action="store_const",
             const={"activation": self.tanh, "derivative": self.d_tanh},
-            help="Use tanh as activation function",
+            help="Use tanh as activation function (default)",
             dest="type_activation",
         )
         activation_group.add_argument(
@@ -90,7 +145,9 @@ class Network(Metrics, DataPreprocessing):
             help=f"Provide name for model saver",
             dest="model_name_file",
         )
-        self._activation_func_arg(parser)
+        self._activation_arg(parser)
+        self._optimizer_arg(parser)
+        self._regularization_arg(parser)
 
     """
     Private Methods
@@ -103,8 +160,16 @@ class Network(Metrics, DataPreprocessing):
             self.model_file = f"{self.default_model_file}_{self.name}.npy"
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
-            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
+            default_value={"activation": self.tanh, "derivative": self.d_tanh},
         ).values()
+        self.optimizer = self.get_args(
+            "type_optimizer",
+            default_value=self.adam,
+        )
+        self.regularization = self.get_args(
+            "type_regularization",
+            default_value=self.l1_laplacian,
+        )
 
     def _add_layer(self, size: int):
         """
@@ -119,10 +184,12 @@ class Network(Metrics, DataPreprocessing):
                 input_layer_dim,
                 activation=self.activation_func,
                 derivative=self.derivative,
+                optimizer=self.optimizer,
+                regularization=self.regularization,
             )
         )
 
-    def _init_layers(self, input_dim, layers_size):
+    def _init_layers(self, input_dim: int, layers_size: int):
         self.input_dim = input_dim
         self.layers_size = layers_size
         for s in layers_size:
@@ -140,7 +207,7 @@ class Network(Metrics, DataPreprocessing):
         one_hot[y] = 1
         return one_hot
 
-    def _feedforward(self, X):
+    def _feedforward(self, X: np.ndarray):
         self.activations = [X]
         self.weighted_sums = []
         for layer in self.layers:
@@ -149,7 +216,7 @@ class Network(Metrics, DataPreprocessing):
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
 
-    def _calcul_backpropagation(self, y):
+    def _calcul_backpropagation(self, y: float):
         delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))
         deltas = [delta]
 
@@ -191,7 +258,7 @@ class Network(Metrics, DataPreprocessing):
             layer.update_weights(layer.weights, wg / Y.size, learning_rate)
             layer.update_biases(layer.biases, bg / Y.size, learning_rate)
 
-    def _get_loss(self, predicted, Y):
+    def _get_loss(self, predicted: np.ndarray, Y: np.ndarray):
         cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
         loss = self.cross_entropy(cross_y, np.array(predicted))
         return loss
@@ -200,13 +267,13 @@ class Network(Metrics, DataPreprocessing):
     Predict
     """
 
-    def _predict_feedforward(self, input_data):
+    def _predict_feedforward(self, input_data: np.ndarray):
         activation = input_data
         for layer in self.layers:
             activation = layer.forward(activation)
         return activation
 
-    def _predict(self, input_data):
+    def _predict(self, input_data: np.ndarray):
         return np.argmax(self._predict_feedforward(input_data))
 
     def __init__(
@@ -236,19 +303,19 @@ class Network(Metrics, DataPreprocessing):
     Public Methods
     """
 
-    def _launch_batch_train(self, X, Y, batch_size):
+    def _launch_batch_train(self, X: np.ndarray, Y: np.ndarray, batch_size: int):
         n = Y.size
         for batch_start in range(0, n, batch_size):
             X_batch = X[batch_start : batch_start + batch_size]
             Y_batch = Y[batch_start : batch_start + batch_size]
             self._train_batch(X_batch, Y_batch, self.learning_rate)
 
-    def _check_loss(self, e, watch_perf):
-        if (e > watch_perf or self.loss[-1] < 0.08) and self.best_loss[0] < self.loss[
+    def _check_loss(self, e: int, watch_perf: int):
+        if (e > watch_perf or self.loss[-1] < 0.05) and self.best_loss[0] < self.loss[
             -1
         ]:
             self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]
-        return True if np.mean(self.loss[-10:]) < 0.075 else False
+        return True if np.mean(self.loss[-10:]) < 0.05 else False
 
     def train(self, batch_size: int = 10):
         logging.info(f"Start training - {self.epochs} epochs")
@@ -274,7 +341,7 @@ class Network(Metrics, DataPreprocessing):
     File Handling Method
     """
 
-    def save_model(self, model_file):
+    def save_model(self, model_file: str):
         model = [(self.input_dim, self.layers_size)]
         model.extend([(l.weights.tolist(), l.biases.tolist()) for l in self.layers])
         logging.info(f"Model saved in '{model_file}'")

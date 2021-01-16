@@ -6,7 +6,7 @@ import numpy as np
 
 class KNN:
     @staticmethod
-    def arange_array(dataset, clear_dt, columns):
+    def arange_array(dataset, clear_dt: np.ndarray, columns: np.ndarray):
         store = np.zeros(shape=(dataset.shape[0], dataset.shape[1] - clear_dt.shape[1]))
         for i, c in enumerate(columns):
             store[:, i] = dataset[:, c]
@@ -16,7 +16,9 @@ class KNN:
         )
 
     @staticmethod
-    def rearange_array(dataset, initial_colomns, columns):
+    def rearange_array(
+        dataset: np.ndarray, initial_colomns: np.ndarray, columns: np.ndarray
+    ):
         index = list(range(dataset.shape[1] - len(columns)))
         for i, c in zip(initial_colomns, columns):
             index.insert(i, c)
@@ -26,10 +28,10 @@ class KNN:
         return np.array(new_dataset, dtype=float)
 
     @staticmethod
-    def _euclidean_distance(point1, point2):
+    def _euclidean_distance(point1: np.ndarray, point2: np.ndarray):
         return np.sqrt(np.sum(np.power(point1 - point2, 2)))
 
-    def _knn(self, dataset, query, k, distance_fn):
+    def _knn(self, dataset: np.ndarray, query: np.ndarray, k: int, distance_fn):
         neighbor_distances_and_indices = np.array(
             [(i, distance_fn(d, query)) for i, d in enumerate(dataset)]
         )
@@ -38,7 +40,15 @@ class KNN:
             for r in sorted(neighbor_distances_and_indices, key=lambda x: x[1])[:k]
         ]
 
-    def knn_imputer(self, dataset, column, queries, k, to_fill, rd):
+    def knn_imputer(
+        self,
+        dataset: np.ndarray,
+        column: np.ndarray,
+        queries: np.ndarray,
+        k: int,
+        to_fill: np.ndarray,
+        rd: np.ndarray,
+    ):
         for i, q in enumerate(queries):
             indexes = self._knn(
                 dataset=dataset,
@@ -50,7 +60,7 @@ class KNN:
             to_fill[i][column] = np.mean(selected[:, column])
         return to_fill
 
-    def knn_multi_column_imputer(self, dataset, k):
+    def knn_multi_column_imputer(self, dataset: np.ndarray, k: np.ndarray):
         initial_columns = np.unique(np.argwhere(np.isnan(dataset)).T[1])
         dataset = self.arange_array(
             dataset,

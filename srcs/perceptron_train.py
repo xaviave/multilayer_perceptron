@@ -5,7 +5,7 @@ def run():
     epochs = 1000
     nn = Network(
         input_dim=30,
-        layers_size=[20, 10, 2],
+        layers_size=[5, 5, 2],
         epochs=epochs,
         learning_rate=0.01,
     )
