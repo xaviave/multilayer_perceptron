@@ -33,41 +33,41 @@ class Layer(Math):
 
     # @staticmethod
     # @jit(nopython=True)
-    def momentum(self, mom, gradient: np.ndarray):
+    def momentum(self, mom, gradient: np.ndarray, reg):
         """
         Momentum Optimization
         """
         previous_momentum = mom
-        mom = (0.01 * gradient) * 0.1 + previous_momentum * 0.9
+        mom = gradient * reg * 0.1 + previous_momentum * 0.9
         return mom
 
-    def adam(self, mom, rms, gradient, learning_rate):
+    def adam(self, mom, rms, gradient, learning_rate, reg):
         """
         Adam Optimization
         """
         gamma = 1e-5
         previous_momentum = mom
         previous_rms = rms
-        mom = (0.01 * gradient) * 0.1 + previous_momentum * 0.9
+        mom = gradient * reg * 0.1 + previous_momentum * 0.9
         rms = np.power(gradient, 2) * 0.1 + previous_rms * 0.9
         return (mom * learning_rate) / (np.sqrt(rms) + gamma)
 
-    def rms_prop(self, rms, gradient: np.ndarray, learning_rate):
+    def rms_prop(self, rms, gradient: np.ndarray, learning_rate, reg):
         """
         RMSprop Optimization
         """
         gamma = 1e-5
         previous_rms = rms
         rms = np.power(gradient, 2) * 0.1 + previous_rms * 0.9
-        return (gradient * 0.01 * learning_rate) / (np.sqrt(rms) + gamma)
+        return (gradient * reg * learning_rate) / (np.sqrt(rms) + gamma)
 
-    @staticmethod
-    @jit(nopython=True)
-    def sgd(gradient: np.ndarray, learning_rate: float):
+    # @staticmethod
+    # @jit(nopython=True)
+    def sgd(self, gradient: np.ndarray, learning_rate: float, reg):
         """
         Vanilla Stochastic Gradient Descent
         """
-        return learning_rate * (0.01 * gradient)
+        return learning_rate * (gradient * reg)
 
     # @staticmethod
     # @jit(nopython=True)
@@ -75,10 +75,12 @@ class Layer(Math):
         """
         Gradient Descent Update
         """
-        # weights -= Layer.sgd(gradient, learning_rate)
-        weights -= self.momentum(self.mom_w, gradient)
-        # weights -= self.rms_prop(self.rms_w, gradient, learning_rate)
-        # weights -= self.adam(self.mom_w, self.rms_w, gradient, learning_rate)
+        # weights -= self.sgd(gradient, learning_rate, self.l1_laplacian(weights))
+        # weights -= self.momentum(self.mom_w, gradient, self.l1_laplacian(weights))
+        # weights -= self.rms_prop(self.rms_w, gradient, learning_rate, self.l1_laplacian(weights))
+        weights -= self.adam(
+            self.mom_w, self.rms_w, gradient, learning_rate, self.l1_laplacian(weights)
+        )
 
     # @staticmethod
     # @jit(nopython=True)
@@ -86,7 +88,9 @@ class Layer(Math):
         """
         Gradient Descent Update
         """
-        # biases -= Layer.sgd(gradient, learning_rate)
-        biases -= self.momentum(self.mom_b, gradient)
-        # biases -= self.rms_prop(self.rms_b, gradient, learning_rate)
-        # biases -= self.adam(self.mom_b, self.rms_b, gradient, learning_rate)
+        # biases -= self.sgd(gradient, learning_rate, self.l1_laplacian(biases))
+        # biases -= self.momentum(self.mom_b, gradient, self.l1_laplacian(biases))
+        # biases -= self.rms_prop(self.rms_b, gradient, learning_rate, self.l1_laplacian(biases))
+        biases -= self.adam(
+            self.mom_b, self.rms_b, gradient, learning_rate, self.l1_laplacian(biases)
+        )

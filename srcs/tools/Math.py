@@ -82,6 +82,20 @@ class Math:
         return np.array([1 if zi > 0 else self.learning_rate for zi in z])
 
     """
+    REGULARIZATION
+    """
+
+    @staticmethod
+    @jit(nopython=True)
+    def l1_laplacian(W):
+        return 0.01 * np.sum(np.abs(W))
+
+    @staticmethod
+    @jit(nopython=True)
+    def l2_gaussian(W):
+        return 0.01 * np.sum(np.power(W, 2))
+
+    """
     ERROR
     """
 
