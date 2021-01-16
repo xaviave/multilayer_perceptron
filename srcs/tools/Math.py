@@ -11,7 +11,9 @@ class Math:
     @staticmethod
     @jit(nopython=True)
     def standardize(X):
-        return (X - np.mean(X)) / np.std(X)
+        for i in range(X.shape[1]):
+            X[:, i] = (X[:, i] - np.mean(X[:, i])) / np.std(X[:, i])
+        return X
 
     @staticmethod
     @jit(nopython=True)
