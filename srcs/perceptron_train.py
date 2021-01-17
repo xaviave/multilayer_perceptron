@@ -12,7 +12,8 @@ def run():
     nn.train()
     nn.evaluate()
     nn.save_model(nn.model_file)
-    # nn._visualize(epochs)
+    if nn.plot:
+        nn.visualize()
 
 
 if __name__ == "__main__":

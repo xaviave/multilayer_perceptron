@@ -14,16 +14,19 @@ from tools.DataPreprocessing import DataPreprocessing
 
 class Network(Metrics, DataPreprocessing, Optimizer):
     input_dim: int
+    last_epoch: int
 
     deltas: list
     layers: list
     loss: list = []
+    accuracy: list = []
     time: datetime.timedelta
 
     val_loss: list = []
     predicted: list = []
     activations: list = []
     layers_size: list = []
+    val_accuracy: list = []
     weighted_sums: list = []
     best_loss: list = [0, 0]
     default_model_file: str = "data/models/model"
@@ -271,11 +274,6 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             layer.update_weights(layer.weights, wg / Y.size, learning_rate)
             layer.update_biases(layer.biases, bg / Y.size, learning_rate)
 
-    def _get_loss(self, predicted: np.ndarray, Y: np.ndarray):
-        cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
-        loss = self.cross_entropy(cross_y, np.array(predicted))
-        return loss
-
     """
     Predict
     """
@@ -342,6 +340,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             if self._check_loss(e, watch_perf):
                 break
 
+        self.last_epoch = e
         self.layers = self.best_loss[1] if self.best_loss[1] != 0 else self.layers
         logging.info(f"{self.name} finish")
 

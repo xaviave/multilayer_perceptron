@@ -21,41 +21,59 @@ class Metrics(ArgParser):
             help=f"Add more evaluation metrics",
             dest="verbose",
         )
+        parser.add_argument(
+            "-plt",
+            "--plot",
+            action="store_const",
+            const=1,
+            help=f"Display animated plot for loss, val_loss, accuracy and val_accuracy",
+            dest="plot",
+        )
 
     def __init__(self):
         super().__init__()
         self.verbose = self.get_args("verbose", default_value=0)
+        self.plot = self.get_args("plot", default_value=0)
 
-    def visualizer(self, epochs: int, val_loss: float, loss: float):
+    def visualize(self):
         fig = plt.figure(figsize=(10, 7))
-        ep = range(epochs)
-        val_loss = [v * 100 for v in val_loss]
+        ep = range(self.last_epoch)
+        accuracy = [v * 100 for v in self.accuracy]
+        val_accuracy = [v * 100 for v in self.val_accuracy]
 
         plt.subplot(1, 2, 1)
         plt.title("Loss")
         plt.xlabel("epochs")
-        (line,) = plt.plot([], [], c="r")
-        plt.ylim(min(loss) - 0.2, max(loss) + 0.2)
-        plt.xlim(-10, epochs + 10)
+        (lo_1,) = plt.plot([], [], c="r")
+        (lo_2,) = plt.plot([], [], c="b")
+        plt.ylim(0, max(self.loss) + 0.1)
+        plt.xlim(-10, self.last_epoch + 10)
+        plt.legend(["training dataset", "validate dataset"])
 
         plt.subplot(1, 2, 2)
         plt.title("Accuracy")
         plt.xlabel("epochs")
         plt.ylabel("percents")
-        (line2,) = plt.plot([], [], c="b")
-        plt.ylim(min(val_loss) - 5, max(val_loss) + 5)
-        plt.xlim(-10, epochs + 10)
+        (ac_1,) = plt.plot([], [], c="r")
+        (ac_2,) = plt.plot([], [], c="b")
+        plt.ylim(min(accuracy) - 1, 100)
+        plt.xlim(-10, self.last_epoch + 10)
+        plt.legend(["training dataset", "validate dataset"], bbox_to_anchor=(1, 0.12))
 
-        def animate(i: int, loss: float, val_loss: float):
-            line.set_data(ep[:i], loss[:i])
-            line2.set_data(ep[:i], val_loss[:i])
+        def animate(i):
+            lo_1.set_data(ep[:i], self.loss[:i])
+            lo_2.set_data(ep[:i], self.val_loss[:i])
+            ac_1.set_data(ep[:i], accuracy[:i])
+            ac_2.set_data(ep[:i], val_accuracy[:i])
             return (
-                line,
-                line2,
+                lo_1,
+                lo_2,
+                ac_1,
+                ac_2,
             )
 
         _ = animation.FuncAnimation(
-            fig, animate, frames=epochs, blit=True, interval=1, repeat=False
+            fig, animate, frames=self.last_epoch, blit=True, interval=100, repeat=False
         )
         plt.show()
 
@@ -68,14 +86,23 @@ class Metrics(ArgParser):
         except ZeroDivisionError:
             return "nan"
 
+    def _get_loss(self, predicted: np.ndarray, Y: np.ndarray):
+        cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
+        loss = self.cross_entropy(cross_y, np.array(predicted))
+        return loss
+
+    @staticmethod
+    def _get_accuracy(Z: np.ndarray, Y: np.ndarray):
+        return np.where(Z == Y)[0].shape[0] / Y.shape[0]
+
     def additional_metrics(self, predicted: np.ndarray, Y: np.ndarray):
         TP = np.where((Y == predicted) & (Y == 1))[0].shape[0]
         FP = np.where((Y != predicted) & (predicted == 1))[0].shape[0]
         TN = np.where((Y == predicted) & (Y == 0))[0].shape[0]
         FN = np.where((Y != predicted) & (predicted == 0))[0].shape[0]
         print(
-            f"F1 score = {self._f1_score(TP, FP, FN)}",
-            f"Mean squared Error = {Math.mean_squared(Y, predicted)}\n",
+            f"F1 score = {round(self._f1_score(TP, FP, FN), 3)} |",
+            f"Mean absolute Error = {round(Math.mean_squared(Y, predicted), 3)}\n{'-'*70}\n",
             "Confusion Matrix\n",
             tabulate(
                 [["False", TN, FP], ["True", FN, TP]],
@@ -93,18 +120,29 @@ class Metrics(ArgParser):
                 [self._predict_feedforward(x) for x in self.X_val], self.Y_val
             )
         )
+        self.accuracy.append(
+            self._get_accuracy(np.array([self._predict(x) for x in X]), Y)
+        )
+        self.val_accuracy.append(
+            self._get_accuracy(
+                np.array([self._predict(x) for x in self.X_val]), self.Y_val
+            )
+        )
         time = datetime.datetime.now() - start
         if self.verbose:
             self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
         print(
             f"""
-epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - time: {time}
+epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - accuracy: {self.accuracy[-1] * 100:.2f}% - val_loss {self.val_loss[-1]:.4f} - val_accuracy: {self.val_accuracy[-1] * 100:.2f}% - time: {time}
 """
         )
 
     def _evaluate_predict(self, start: int, X: np.ndarray, Y: np.ndarray):
         loss = self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y)
+        accuracy = self._get_accuracy(np.array([self._predict(x) for x in X]), Y)
         time = datetime.datetime.now() - start
         if self.verbose:
             self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
-        print(f"Predict model | loss: {loss:.4f}  - acc {'loic'} - time: {time}")
+        print(
+            f"Predict model | loss: {loss:.4f} - accuracy: {accuracy * 100:.2f}% - time: {time}"
+        )
