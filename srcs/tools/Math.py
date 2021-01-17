@@ -49,7 +49,6 @@ class Math:
     def leaky_relu(z: np.ndarray):
         return np.array([zi if zi > 0 else 0.2 for zi in z])
 
-    @jit(nopython=True)
     def prelu(self, z: np.ndarray):
         return np.array([zi if zi > 0 else self.learning_rate * zi for zi in z])
 
