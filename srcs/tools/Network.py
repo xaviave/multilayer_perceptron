@@ -145,6 +145,15 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             help=f"Provide name for model saver",
             dest="model_name_file",
         )
+        parser.add_argument(
+            "-s",
+            "--seed",
+            action="store_const",
+            const=1,
+            help=f"Provide Seed 82876",
+            dest="seed",
+        )
+
         self._activation_arg(parser)
         self._optimizer_arg(parser)
         self._regularization_arg(parser)
@@ -156,8 +165,12 @@ class Network(Metrics, DataPreprocessing, Optimizer):
     def _init_args(self):
         self.model_file = self.get_args("model_file")
         self.name = self.get_args("model_name_file", default_value="main")
+        self.seed = self.get_args("seed", default_value=0)
+        if self.seed:
+            np.random.seed(82876)
         if self.model_file is None:
             self.model_file = f"{self.default_model_file}_{self.name}.npy"
+
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
             default_value={"activation": self.tanh, "derivative": self.d_tanh},
