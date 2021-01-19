@@ -232,29 +232,24 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
 
-    def _calcul_backpropagation(self, y: float):
-        delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))
-        deltas = [delta]
+    def calcul_der(self, y):
+        activations = self.activations.copy()
+        dz = [self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))]
+        dz[-1] = np.reshape(dz[-1], (-1, 1))
+        activations[-2] = np.reshape(activations[-2], (-1, 1))
+        dw = [self.get_weight_gradient2(dz[-1], activations[-2].T)]
+        db = [dz[-1]]
 
-        nb_layers = len(self.layers) - 2
-        for i in range(nb_layers, -1, -1):
+        for i in range(len(self.layers) - 2, -1, -1):
             layer = self.layers[i]
             next_layer = self.layers[i + 1]
-            activation_prime = layer.activation_prime(self.weighted_sums[i])
-            deltas.append(
-                self.get_deltas(activation_prime, next_layer.weights, deltas[-1])
-            )
-        self.deltas = deltas[::-1]
 
-    def _apply_backpropagation(self):
-        bias_gradient = []
-        weight_gradient = []
-        for i in range(len(self.layers)):
-            weight_gradient.append(
-                self.get_weight_gradient(self.deltas[i], self.activations[i])
-            )
-            bias_gradient.append(self.deltas[i])
-        return weight_gradient, bias_gradient
+            derivate = layer.activation_prime(self.weighted_sums[i])
+            dz.append((np.dot(next_layer.weights.T, dz[-1]).T * derivate).T)
+            activations[i] = np.reshape(activations[i], (1, -1))
+            dw.append(np.dot(dz[-1], activations[i]))
+            db.append(dz[-1])
+        return dw[::-1], db[::-1]
 
     def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
         weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
@@ -264,11 +259,10 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 self._feedforward(x)
-            self._calcul_backpropagation(y)
-            new_weight_gradient, new_bias_gradient = self._apply_backpropagation()
+            new_weight_gradient, new_bias_gradient = self.calcul_der(y)
             for i in range(len(self.layers)):
                 weight_gradient[i] += new_weight_gradient[i]
-                bias_gradient[i] += new_bias_gradient[i]
+                bias_gradient[i] += new_bias_gradient[i].flatten()
 
         for layer, wg, bg in zip(self.layers, weight_gradient, bias_gradient):
             layer.update_weights(layer.weights, wg / Y.size, learning_rate)
