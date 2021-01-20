@@ -34,9 +34,7 @@ class Optimizer:
         gamma = 1e-5
         previous_rms = optimizer["rms_prop"]
         optimizer["rms_prop"] = np.power(gradient, 2) * 0.1 + previous_rms * 0.9
-        return (gradient * learning_rate) / (
-            np.sqrt(optimizer["rms_prop"]) + gamma
-        )
+        return (gradient * learning_rate) / (np.sqrt(optimizer["rms_prop"]) + gamma)
 
     @staticmethod
     def adam(optimizer: dict, gradient: np.ndarray, learning_rate: float, reg: float):

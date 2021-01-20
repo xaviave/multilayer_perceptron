@@ -116,12 +116,9 @@ class Math:
     """
 
     @staticmethod
-    #@jit(nopython=True)
+    @jit(nopython=True)
     def soft_max(z: np.ndarray):
-        a = np.zeros((z.shape))
-        for i, zi in enumerate(z):
-            a[i] = np.exp(zi) / np.sum(np.exp(zi))
-        return a
+        return np.exp(z) / np.sum(np.exp(z))
 
     """
     OPTIMIZATION UTILS
@@ -129,15 +126,15 @@ class Math:
 
     @staticmethod
     @jit(nopython=True)
-    def get_output_delta(a: np.ndarray, target: np.ndarray):
-        return a - target
+    def get_output_delta(a: np.ndarray, y: np.ndarray):
+        return a - y
 
     @staticmethod
     @jit(nopython=True)
-    def get_deltas(activation_prime: np.ndarray, W: np.ndarray, last_delta: np.ndarray):
-        return activation_prime * np.dot(W.T, last_delta)
+    def get_deltas(dz: np.ndarray, W: np.ndarray, derivate: np.ndarray):
+        return np.dot(dz, W) * derivate
 
     @staticmethod
     @jit(nopython=True)
-    def get_weight_gradient(delta: np.ndarray, prev_activation: np.ndarray):
-        return np.dot(delta, prev_activation)
+    def get_weight_gradient(dz: np.ndarray, prev_activation: np.ndarray):
+        return np.dot(dz, prev_activation)
