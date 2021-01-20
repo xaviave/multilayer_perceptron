@@ -23,7 +23,7 @@ class Math:
     @staticmethod
     @jit(nopython=True)
     def _weighted_sum(X: np.ndarray, W: np.ndarray, B: np.ndarray):
-        return np.dot(W, X) + B
+        return np.dot(X, W) + B
 
     """
     ACTIVATION
@@ -116,9 +116,12 @@ class Math:
     """
 
     @staticmethod
-    @jit(nopython=True)
-    def soft_max(Z: np.ndarray):
-        return np.exp(Z) / np.sum(np.exp(Z))
+    #@jit(nopython=True)
+    def soft_max(z: np.ndarray):
+        a = np.zeros((z.shape))
+        for i, zi in enumerate(z):
+            a[i] = np.exp(zi) / np.sum(np.exp(zi))
+        return a
 
     """
     OPTIMIZATION UTILS
@@ -137,4 +140,4 @@ class Math:
     @staticmethod
     @jit(nopython=True)
     def get_weight_gradient(delta: np.ndarray, prev_activation: np.ndarray):
-        return np.outer(delta, prev_activation)
+        return np.dot(delta, prev_activation)

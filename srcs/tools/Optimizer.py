@@ -21,7 +21,7 @@ class Optimizer:
         Momentum Optimizer
         """
         previous_momentum = optimizer["momentum"]
-        optimizer["momentum"] = gradient * reg * 0.1 + previous_momentum * 0.9
+        optimizer["momentum"] = gradient * 0.1 + previous_momentum * 0.9
         return optimizer["momentum"]
 
     @staticmethod
@@ -34,7 +34,7 @@ class Optimizer:
         gamma = 1e-5
         previous_rms = optimizer["rms_prop"]
         optimizer["rms_prop"] = np.power(gradient, 2) * 0.1 + previous_rms * 0.9
-        return (gradient * reg * learning_rate) / (
+        return (gradient * learning_rate) / (
             np.sqrt(optimizer["rms_prop"]) + gamma
         )
 
@@ -46,7 +46,7 @@ class Optimizer:
         gamma = 1e-5
         previous_rms = optimizer["rms_prop"]
         previous_momentum = optimizer["momentum"]
-        optimizer["momentum"] = gradient * reg * 0.1 + previous_momentum * 0.9
+        optimizer["momentum"] = gradient * 0.1 + previous_momentum * 0.9
         optimizer["rms_prop"] = np.power(gradient, 2) * 0.1 + previous_rms * 0.9
         return (optimizer["momentum"] * learning_rate) / (
             np.sqrt(optimizer["rms_prop"]) + gamma

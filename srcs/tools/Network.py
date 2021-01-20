@@ -223,29 +223,41 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         one_hot[y] = 1
         return one_hot
 
+    @staticmethod
+    #@jit(nopython=True)
+    def _to_one_hots(Y: np.ndarray, k: int):
+        """
+        Convertit un entier en vecteur "one-hot".
+        to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
+        """
+        one_hots = np.zeros((Y.shape[0], k))
+        for i, y in enumerate(Y):
+            one_hots[i][int(y)] = 1 
+        return one_hots
+
     def _feedforward(self, X: np.ndarray):
         self.activations = [X]
         self.weighted_sums = []
         for layer in self.layers:
             self.weighted_sums.append(
-                self._weighted_sum(self.activations[-1], layer.weights, layer.biases)
+                self._weighted_sum(self.activations[-1], layer.weights.T, layer.biases)
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
 
-    def calcul_der(self, y):
-        activations = self.activations.copy()
-        dz = [self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))]
-        dz[-1] = np.reshape(dz[-1], (-1, 1))
-        activations[-2] = np.reshape(activations[-2], (-1, 1))
-        dw = [self.get_weight_gradient2(dz[-1], activations[-2].T)]
+    def calcul_der(self, Y):
+        dz = [self.get_output_delta(self.activations[-1], self._to_one_hots(Y, 2))]
+        dw = [self.get_weight_gradient(dz[-1].T, self.activations[-2])]
         db = [dz[-1]]
+        print(dz[-1].shape, dw[-1].shape, db[-1].shape, self.layers[2].weights.shape) ; quit()
 
         for i in range(len(self.layers) - 2, -1, -1):
             layer = self.layers[i]
             next_layer = self.layers[i + 1]
-
             derivate = layer.activation_prime(self.weighted_sums[i])
-            dz.append((np.dot(next_layer.weights.T, dz[-1]).T * derivate).T)
+
+            print(next_layer.weights.shape, dz[-1].shape, derivate.shape) ; quit()
+            dz.append((np.dot(w, dz[-1].T).T * derivate).T)
+            print(dz[-1].shape) ; quit()
             activations[i] = np.reshape(activations[i], (1, -1))
             dw.append(np.dot(dz[-1], activations[i]))
             db.append(dz[-1])
@@ -254,15 +266,15 @@ class Network(Metrics, DataPreprocessing, Optimizer):
     def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
         weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
         bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
-        for (x, y) in zip(X, Y):
-            warnings.simplefilter("default")
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self._feedforward(x)
-            new_weight_gradient, new_bias_gradient = self.calcul_der(y)
-            for i in range(len(self.layers)):
-                weight_gradient[i] += new_weight_gradient[i]
-                bias_gradient[i] += new_bias_gradient[i].flatten()
+        warnings.simplefilter("default")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self._feedforward(X)
+        new_weight_gradient, new_bias_gradient = self.calcul_der(Y)
+        quit()
+            #for i in range(len(self.layers)):
+            #    weight_gradient[i] += new_weight_gradient[i]
+            #    bias_gradient[i] += new_bias_gradient[i].flatten()
 
         for layer, wg, bg in zip(self.layers, weight_gradient, bias_gradient):
             layer.update_weights(layer.weights, wg / Y.size, learning_rate)
