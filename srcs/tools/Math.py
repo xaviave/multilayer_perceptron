@@ -120,7 +120,10 @@ class Math:
     @staticmethod
     @jit(nopython=True)
     def soft_max(z: np.ndarray):
-        return np.exp(z) / np.sum(np.exp(z))
+        a = np.zeros((z.shape))
+        for i, zi in enumerate(z):
+            a[i] = np.exp(zi) / np.sum(np.exp(zi))
+        return a
 
     """
     OPTIMIZATION UTILS

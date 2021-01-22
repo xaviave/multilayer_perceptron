@@ -35,11 +35,6 @@ class Layer(Math, Optimizer):
     Public Methods
     """
 
-    def forward(self, x: np.ndarray):
-        z = self._weighted_sum(x, self.weights.T, self.biases)
-        activation = self.activation(z)
-        return activation
-
     def update_weights(
         self, weights: np.ndarray, gradient: np.ndarray, learning_rate: float
     ):

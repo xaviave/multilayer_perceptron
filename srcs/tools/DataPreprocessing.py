@@ -39,6 +39,25 @@ class DataPreprocessing(ArgParser, Math, KNN):
     Override Methods
     """
 
+    def _scaler_arg(self, parser):
+        scaler_group = parser.add_mutually_exclusive_group(required=False)
+        scaler_group.add_argument(
+            "-nsc",
+            "--normalize",
+            action="store_const",
+            const=self.normalize,
+            help="Use Normalization as scaler function",
+            dest="type_scaler",
+        )
+        scaler_group.add_argument(
+            "-ssc",
+            "--standardize",
+            action="store_const",
+            const=self.standardize,
+            help="Use Standardization as scaler function (default)",
+            dest="type_scaler",
+        )
+
     def _add_parser_args(self, parser):
         super()._add_parser_args(parser)
         parser.add_argument(
@@ -58,17 +77,19 @@ class DataPreprocessing(ArgParser, Math, KNN):
             help=f"Provide dataset CSV file - Using '{self.default_dataset_file}' as default test file",
         )
         parser.add_argument(
-            "-s",
+            "-sp",
             "--split_train",
             type=int,
             default=0.3,
             help=f"Split train dataset by X to create a test dataset\nIf provided, override '-dt' option",
         )
+        self._scaler_arg(parser)
 
     def _get_options(self):
         self.split = self.get_args("split_train")
         self.dataset_test_file = self.get_args("dataset_test_file")
         self.dataset_train_file = self.get_args("dataset_train_file")
+        self.scaler = self.get_args("type_scaler", default_value=self.standardize)
         if (
             self.dataset_test_file == self.default_dataset_file
             or self.dataset_train_file == self.default_dataset_file
@@ -130,7 +151,7 @@ class DataPreprocessing(ArgParser, Math, KNN):
         dataset[dataset == 0] = np.nan
         dataset[:, 0] = np.where(dataset[:, 0] == "M", 0, 1)
         X = self.knn_multi_column_imputer(np.array(dataset, dtype=float), 2)
-        return X[:, 0], self.normalize(X[:, 1:])
+        return X[:, 0], self.scaler(X[:, 1:])
 
     def __init__(self):
         super().__init__(prog=self.prog_name)

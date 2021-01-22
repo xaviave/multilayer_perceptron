@@ -214,75 +214,54 @@ class Network(Metrics, DataPreprocessing, Optimizer):
 
     @staticmethod
     @jit(nopython=True)
-    def _to_one_hot(y: int, k: int) -> np.array:
+    def _to_one_hots(y: int, k: int) -> np.array:
         """
         Convertit un entier en vecteur "one-hot".
         to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
         """
-        one_hot = np.zeros(k)
-        one_hot[y] = 1
+        one_hot = np.zeros((y.shape[0], k))
+        for i, yi in enumerate(y):
+            one_hot[i][int(yi)] = 1
         return one_hot
 
-    def _feedforward(self, x: np.ndarray):
-        self.activations = [x]
+    def _feedforward(self, X: np.ndarray):
+        self.activations = [X]
         self.weighted_sums = []
         for layer in self.layers:
             self.weighted_sums.append(
-                np.reshape(
-                    self._weighted_sum(
-                        self.activations[-1], layer.weights.T, layer.biases
-                    ),
-                    (1, -1),
-                )
+                self._weighted_sum(self.activations[-1], layer.weights.T, layer.biases)
             )
-            self.activations.append(
-                np.reshape(layer.activation(self.weighted_sums[-1]), (1, -1))
-            )
+            self.activations.append(layer.activation(self.weighted_sums[-1]))
 
-    def _backpropagation(self, y):
-        dz = [self.get_output_delta(self.activations[-1], self._to_one_hot(y, 2))]
-        dw = [self.get_weight_gradient(dz[-1].T, self.activations[-2])]
-        db = [dz[-1]]
+    def _backpropagation(self, Y):
+        dz = [self.activations[-1] - self._to_one_hots(Y, 2)]
+        dw = [np.dot(dz[-1].T, self.activations[-2]) / Y.size]
+        db = [np.sum(dz[-1], axis=0) / Y.size]
 
         for i in range(len(self.layers) - 2, -1, -1):
             layer = self.layers[i]
             next_layer = self.layers[i + 1]
             derivate = layer.activation_prime(self.weighted_sums[i])
 
-            dz.append(self.get_deltas(dz[-1], next_layer.weights, derivate))
-            dw.append(self.get_weight_gradient(dz[-1].T, self.activations[i]))
-            db.append(dz[-1])
+            dz.append(np.dot(dz[-1], next_layer.weights) * derivate)
+            dw.append(np.dot(dz[-1].T, self.activations[i]) / Y.size)
+            db.append(np.sum(dz[-1], axis=0) / Y.size)
         return dw[::-1], db[::-1]
 
     def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
-        weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
-        bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
-        for (x, y) in zip(X, Y):
-            x = np.reshape(x, (1, -1))
-            y = int(y)
-            warnings.simplefilter("default")
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self._feedforward(x)
-            new_weight_gradient, new_bias_gradient = self._backpropagation(y)
+        warnings.simplefilter("default")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self._feedforward(X)
+        dw, db = self._backpropagation(Y)
 
-            for i in range(len(self.layers)):
-                weight_gradient[i] += new_weight_gradient[i]
-                bias_gradient[i] += new_bias_gradient[i].flatten()
-
-        for layer, wg, bg in zip(self.layers, weight_gradient, bias_gradient):
-            layer.update_weights(layer.weights, wg / Y.size, learning_rate)
-            layer.update_biases(layer.biases, bg / Y.size, learning_rate)
+        for layer, dwi, dbi in zip(self.layers, dw, db):
+            layer.update_weights(layer.weights, dwi, learning_rate)
+            layer.update_biases(layer.biases, dbi, learning_rate)
 
     """
     Predict
     """
-
-    def _predict_feedforward(self, x: np.ndarray):
-        activation = x
-        for layer in self.layers:
-            activation = layer.forward(activation)
-        return activation
 
     def _predict(self, input_data: np.ndarray):
         return np.argmax(self._predict_feedforward(input_data))

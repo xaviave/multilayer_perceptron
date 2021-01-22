@@ -86,10 +86,9 @@ class Metrics(ArgParser):
         except ZeroDivisionError:
             return "nan"
 
-    def _get_loss(self, predicted: np.ndarray, Y: np.ndarray):
-        cross_y = np.array([self._to_one_hot(int(y), 2) for y in Y])
-        loss = self.cross_entropy(cross_y, np.array(predicted))
-        return loss
+    def _get_loss(self, X: np.ndarray, Y: np.ndarray):
+        self._feedforward(X)
+        return self.cross_entropy(self._to_one_hots(Y, 2), self.activations[-1])
 
     @staticmethod
     def _get_accuracy(Z: np.ndarray, Y: np.ndarray):
@@ -112,37 +111,31 @@ class Metrics(ArgParser):
         )
 
     def _evaluate(self, start: int, X: np.ndarray, Y: np.ndarray, e: int, epochs: int):
-        self.loss.append(
-            self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y)
-        )
-        self.val_loss.append(
-            self._get_loss(
-                [self._predict_feedforward(x) for x in self.X_val], self.Y_val
-            )
-        )
-        self.accuracy.append(
-            self._get_accuracy(np.array([self._predict(x) for x in X]), Y)
-        )
-        self.val_accuracy.append(
-            self._get_accuracy(
-                np.array([self._predict(x) for x in self.X_val]), self.Y_val
-            )
-        )
+        test_loss = []
+        self.loss.append(self._get_loss(X, Y))
+        self.val_loss.append(self._get_loss(self.X_val, self.Y_val))
+        test_loss.append(self._get_loss(self.X_test, self.Y_test))
+        # self.accuracy.append(
+        #    self._get_accuracy(np.array([self._predict(x) for x in X]), Y)
+        # )
+        # self.val_accuracy.append(
+        #    self._get_accuracy(
+        #        np.array([self._predict(x) for x in self.X_val]), self.Y_val
+        #    )
+        # )
         time = datetime.datetime.now() - start
         if self.verbose:
             self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
         print(
             f"""
-epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - accuracy: {self.accuracy[-1] * 100:.2f}% - val_loss {self.val_loss[-1]:.4f} - val_accuracy: {self.val_accuracy[-1] * 100:.2f}% - time: {time}
+epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - test_loss {test_loss[-1]:.4f} - time: {time}
 """
         )
 
     def _evaluate_predict(self, start: int, X: np.ndarray, Y: np.ndarray):
-        loss = self._get_loss(np.array([self._predict_feedforward(x) for x in X]), Y)
-        accuracy = self._get_accuracy(np.array([self._predict(x) for x in X]), Y)
+        loss = self._get_loss(X, Y)
+        # accuracy = self._get_accuracy(X, Y)
         time = datetime.datetime.now() - start
         if self.verbose:
             self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
-        print(
-            f"Predict model | loss: {loss:.4f} - accuracy: {accuracy * 100:.2f}% - time: {time}"
-        )
+        print(f"Predict model | loss: {loss:.4f} - time: {time}")
