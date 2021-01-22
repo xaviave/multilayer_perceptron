@@ -130,7 +130,7 @@ class DataPreprocessing(ArgParser, Math, KNN):
         dataset[dataset == 0] = np.nan
         dataset[:, 0] = np.where(dataset[:, 0] == "M", 0, 1)
         X = self.knn_multi_column_imputer(np.array(dataset, dtype=float), 2)
-        return X[:, 0], self.standardize(X[:, 1:])
+        return X[:, 0], self.normalize(X[:, 1:])
 
     def __init__(self):
         super().__init__(prog=self.prog_name)

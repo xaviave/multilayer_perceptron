@@ -18,7 +18,9 @@ class Math:
     @staticmethod
     @jit(nopython=True)
     def normalize(X: np.ndarray):
-        return (X - np.min(X)) / (np.max(X) - np.min(X))
+        for i in range(X.shape[1]):
+            X[:, i] = (X[:, i] - np.min(X[:, i])) / (np.max(X[:, i]) - np.min(X[:, i]))
+        return X
 
     @staticmethod
     @jit(nopython=True)
@@ -41,8 +43,8 @@ class Math:
 
     @staticmethod
     @jit(nopython=True)
-    def relu(z: np.ndarray):
-        return np.array([max(0, zi) for zi in z])
+    def relu(x: np.ndarray):
+        return np.where(x < 0, 0, x)
 
     @staticmethod
     @jit(nopython=True)
@@ -69,8 +71,8 @@ class Math:
 
     @staticmethod
     @jit(nopython=True)
-    def d_relu(z: np.ndarray):
-        return np.array([1 if zi > 0 else 0 for zi in z])
+    def d_relu(x: np.ndarray):
+        return np.where(x < 0, 0, 1)
 
     @staticmethod
     @jit(nopython=True)
