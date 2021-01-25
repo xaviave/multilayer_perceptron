@@ -1,6 +1,10 @@
+import warnings
 import numpy as np
+from numba.core.errors import NumbaPerformanceWarning
 
 from numba import jit
+
+warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
 
 
 class Math:
@@ -106,11 +110,11 @@ class Math:
         return 1.0 / Z.shape[0] * np.sum(np.power(Y - Z, 2))
 
     @staticmethod
-    @jit(nopython=True)
     def cross_entropy(Y: np.ndarray, Z: np.ndarray):
-        epsilon = 1e-5
-        return -(1.0 / Z.shape[0]) * np.sum(
-            Y * np.log(Z + epsilon) + (1 - Y) * np.log(1 - Z + epsilon)
+        epsilon = 1e-7
+        Z = np.clip(Z, epsilon, 1.0 - epsilon)
+        return (
+            np.sum(Y * np.log(Z) + (1 - Y) * np.log(1 - Z)) / -Z.shape[0] / Y.shape[1]
         )
 
     """

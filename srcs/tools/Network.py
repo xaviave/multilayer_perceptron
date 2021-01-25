@@ -96,7 +96,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             "--sigmoid",
             action="store_const",
             const={"activation": self.sigmoid, "derivative": self.d_sigmoid},
-            help="Use sigmoid as activation function",
+            help="Use sigmoid as activation function (default)",
             dest="type_activation",
         )
         activation_group.add_argument(
@@ -104,7 +104,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             "--tanh",
             action="store_const",
             const={"activation": self.tanh, "derivative": self.d_tanh},
-            help="Use tanh as activation function (default)",
+            help="Use tanh as activation function",
             dest="type_activation",
         )
         activation_group.add_argument(
@@ -151,9 +151,8 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         parser.add_argument(
             "-s",
             "--seed",
-            action="store_const",
-            const=1,
-            help=f"Provide Seed 82876",
+            type=int,
+            help=f"Provide Seed",
             dest="seed",
         )
 
@@ -170,13 +169,13 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         self.name = self.get_args("model_name_file", default_value="main")
         self.seed = self.get_args("seed", default_value=0)
         if self.seed:
-            np.random.seed(82876)
+            np.random.seed(self.seed)
         if self.model_file is None:
             self.model_file = f"{self.default_model_file}_{self.name}.npy"
 
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
-            default_value={"activation": self.tanh, "derivative": self.d_tanh},
+            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
         ).values()
         self.optimizer = self.get_args(
             "type_optimizer",
@@ -258,13 +257,6 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         for layer, dwi, dbi in zip(self.layers, dw, db):
             layer.update_weights(layer.weights, dwi, learning_rate)
             layer.update_biases(layer.biases, dbi, learning_rate)
-
-    """
-    Predict
-    """
-
-    def _predict(self, input_data: np.ndarray):
-        return np.argmax(self._predict_feedforward(input_data))
 
     def __init__(
         self,

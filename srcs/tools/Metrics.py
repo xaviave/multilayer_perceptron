@@ -1,5 +1,6 @@
 import datetime
 
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -86,13 +87,18 @@ class Metrics(ArgParser):
         except ZeroDivisionError:
             return "nan"
 
+    def _get_predictions(self):
+        return np.array(list(map(np.argmax, self.activations[-1])))
+
     def _get_loss(self, X: np.ndarray, Y: np.ndarray):
         self._feedforward(X)
         return self.cross_entropy(self._to_one_hots(Y, 2), self.activations[-1])
 
-    @staticmethod
-    def _get_accuracy(Z: np.ndarray, Y: np.ndarray):
-        return np.where(Z == Y)[0].shape[0] / Y.shape[0]
+    def _get_accuracy(self, Z: np.ndarray, Y: np.ndarray):
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="ignore", category=FutureWarning)
+            warnings.simplefilter(action="ignore", category=DeprecationWarning)
+            return np.where(Z == Y)[0].shape[0] / Y.shape[0]
 
     def additional_metrics(self, predicted: np.ndarray, Y: np.ndarray):
         TP = np.where((Y == predicted) & (Y == 1))[0].shape[0]
@@ -101,7 +107,7 @@ class Metrics(ArgParser):
         FN = np.where((Y != predicted) & (predicted == 0))[0].shape[0]
         print(
             f"F1 score = {round(self._f1_score(TP, FP, FN), 3)} |",
-            f"Mean absolute Error = {round(Math.mean_squared(Y, predicted), 3)}\n{'-'*70}\n",
+            f"Mean Squared Error = {round(Math.mean_squared(Y, predicted), 3)}\n{'-'*70}\n",
             "Confusion Matrix\n",
             tabulate(
                 [["False", TN, FP], ["True", FN, TP]],
@@ -111,31 +117,28 @@ class Metrics(ArgParser):
         )
 
     def _evaluate(self, start: int, X: np.ndarray, Y: np.ndarray, e: int, epochs: int):
-        test_loss = []
         self.loss.append(self._get_loss(X, Y))
+        Z = self._get_predictions()
+        self.accuracy.append(self._get_accuracy(Z, Y))
         self.val_loss.append(self._get_loss(self.X_val, self.Y_val))
-        test_loss.append(self._get_loss(self.X_test, self.Y_test))
-        # self.accuracy.append(
-        #    self._get_accuracy(np.array([self._predict(x) for x in X]), Y)
-        # )
-        # self.val_accuracy.append(
-        #    self._get_accuracy(
-        #        np.array([self._predict(x) for x in self.X_val]), self.Y_val
-        #    )
-        # )
-        time = datetime.datetime.now() - start
+        Z_val = self._get_predictions()
+        self.val_accuracy.append(self._get_accuracy(Z_val, self.Y_val))
         if self.verbose:
-            self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
+            self.additional_metrics(Z, Y)
+        time = datetime.datetime.now() - start
         print(
             f"""
-epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - val_loss {self.val_loss[-1]:.4f} - test_loss {test_loss[-1]:.4f} - time: {time}
+epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - accuracy: {self.accuracy[-1] * 100:.2f}% - val_loss {self.val_loss[-1]:.4f} - val_accuracy: {self.val_accuracy[-1] * 100:.2f}% - time: {time}
 """
         )
 
     def _evaluate_predict(self, start: int, X: np.ndarray, Y: np.ndarray):
         loss = self._get_loss(X, Y)
-        # accuracy = self._get_accuracy(X, Y)
+        Z = self._get_predictions()
+        accuracy = self._get_accuracy(Z, Y)
         time = datetime.datetime.now() - start
         if self.verbose:
-            self.additional_metrics(np.array([self._predict(x) for x in X]), Y)
-        print(f"Predict model | loss: {loss:.4f} - time: {time}")
+            self.additional_metrics(Z, Y)
+        print(
+            f"Predict model | loss: {loss:.4f} - accuracy: {accuracy * 100:.2f}% - time: {time}"
+        )
