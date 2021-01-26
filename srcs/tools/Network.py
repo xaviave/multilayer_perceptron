@@ -28,7 +28,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
     layers_size: list = []
     val_accuracy: list = []
     weighted_sums: list = []
-    best_loss: list = [0, 0]
+    best_loss: list = [1, 0]
     default_model_file: str = "data/models/model"
 
     """
@@ -213,11 +213,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
 
     @staticmethod
     @jit(nopython=True)
-    def _to_one_hots(y: int, k: int) -> np.array:
-        """
-        Convertit un entier en vecteur "one-hot".
-        to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
-        """
+    def _to_one_hots(y: np.ndarray, k: int) -> np.array:
         one_hot = np.zeros((y.shape[0], k))
         for i, yi in enumerate(y):
             one_hot[i][int(yi)] = 1
@@ -293,7 +289,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             self._train_batch(X_batch, Y_batch, self.learning_rate)
 
     def _check_loss(self, e: int, watch_perf: int):
-        if (e > watch_perf or self.loss[-1] < 0.05) and self.best_loss[0] < self.loss[
+        if (e > watch_perf or self.loss[-1] < 0.05) and self.best_loss[0] > self.loss[
             -1
         ]:
             self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]

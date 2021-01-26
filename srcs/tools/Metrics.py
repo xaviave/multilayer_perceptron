@@ -127,9 +127,7 @@ class Metrics(ArgParser):
             self.additional_metrics(Z, Y)
         time = datetime.datetime.now() - start
         print(
-            f"""
-epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - accuracy: {self.accuracy[-1] * 100:.2f}% - val_loss {self.val_loss[-1]:.4f} - val_accuracy: {self.val_accuracy[-1] * 100:.2f}% - time: {time}
-"""
+            f"epoch {e + 1}/{epochs} - loss: {self.loss[-1]:.4f} - accuracy: {self.accuracy[-1] * 100:.2f}% - val_loss {self.val_loss[-1]:.4f} - val_accuracy: {self.val_accuracy[-1] * 100:.2f}% - time: {time}"
         )
 
     def _evaluate_predict(self, start: int, X: np.ndarray, Y: np.ndarray):

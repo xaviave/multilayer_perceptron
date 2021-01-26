@@ -1,4 +1,5 @@
 import datetime
+import logging
 import threading
 
 from numpy import random
@@ -13,7 +14,7 @@ class PerceptronGenetic(Genetic):
 
     def _create_layers(self):
         layer = []
-        for _ in range(random.randint(2, 3)):
+        for _ in range(random.randint(2, 6)):
             layer.append(random.randint(self.output_size, self.input_size))
         layer = np.sort(layer)[::-1]
         return np.array([*layer, self.output_size])
@@ -31,11 +32,11 @@ class PerceptronGenetic(Genetic):
                         layers_size=layers_size,
                         epochs=epochs,
                         learning_rate=learning_rate,
-                        name=f"thread-{i}",
                     ),
                     "grade": 0,
                 }
             )
+            self.population[-1]["obj"].name = (f"thread-{i}",)
 
     def _train_network(self, nn):
         nn.train()
@@ -55,16 +56,13 @@ class PerceptronGenetic(Genetic):
         self.best_ind = sorted(
             self.population, key=lambda ind: ind["obj"].best_loss[0]
         )[0]["obj"]
-        print(
-            "\033[93m",
+        logging.warning(
             f"""best loss: {self.best_ind.best_loss[0]}
         layers = {self.best_ind.layers_size} | epochs = {self.best_ind.epochs} | learning_rate = {self.best_ind.learning_rate}
         """,
-            "\033[0m",
         )
         for i, ind in enumerate(self.population):
             self.population[i]["grade"] += ind["obj"].best_loss[0] * 200
-            self.population[i]["grade"] += ind["obj"].best_acc[0] * 100
 
     def mating_poll(self):
         """
