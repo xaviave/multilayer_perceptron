@@ -1,6 +1,10 @@
+import warnings
 import numpy as np
+from numba.core.errors import NumbaPerformanceWarning
 
 from numba import jit
+
+warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
 
 
 class Math:
@@ -18,12 +22,14 @@ class Math:
     @staticmethod
     @jit(nopython=True)
     def normalize(X: np.ndarray):
-        return (X - np.min(X)) / (np.max(X) - np.min(X))
+        for i in range(X.shape[1]):
+            X[:, i] = (X[:, i] - np.min(X[:, i])) / (np.max(X[:, i]) - np.min(X[:, i]))
+        return X
 
     @staticmethod
     @jit(nopython=True)
     def _weighted_sum(X: np.ndarray, W: np.ndarray, B: np.ndarray):
-        return np.dot(W, X) + B
+        return np.dot(X, W) + B
 
     """
     ACTIVATION
@@ -41,8 +47,8 @@ class Math:
 
     @staticmethod
     @jit(nopython=True)
-    def relu(z: np.ndarray):
-        return np.array([max(0, zi) for zi in z])
+    def relu(x: np.ndarray):
+        return np.where(x < 0, 0, x)
 
     @staticmethod
     @jit(nopython=True)
@@ -69,8 +75,8 @@ class Math:
 
     @staticmethod
     @jit(nopython=True)
-    def d_relu(z: np.ndarray):
-        return np.array([1 if zi > 0 else 0 for zi in z])
+    def d_relu(x: np.ndarray):
+        return np.where(x < 0, 0, 1)
 
     @staticmethod
     @jit(nopython=True)
@@ -104,12 +110,10 @@ class Math:
         return 1.0 / Z.shape[0] * np.sum(np.power(Y - Z, 2))
 
     @staticmethod
-    @jit(nopython=True)
     def cross_entropy(Y: np.ndarray, Z: np.ndarray):
-        epsilon = 1e-5
-        return -(1.0 / Z.shape[0]) * np.sum(
-            Y * np.log(Z + epsilon) + (1 - Y) * np.log(1 - Z + epsilon)
-        )
+        epsilon = 1e-7
+        Z = np.clip(Z, epsilon, 1.0 - epsilon)
+        return np.sum(Y * np.log(Z) + (1 - Y) * np.log(1 - Z)) / -Y.size
 
     """
     OUTPUT
@@ -117,24 +121,8 @@ class Math:
 
     @staticmethod
     @jit(nopython=True)
-    def soft_max(Z: np.ndarray):
-        return np.exp(Z) / np.sum(np.exp(Z))
-
-    """
-    OPTIMIZATION UTILS
-    """
-
-    @staticmethod
-    @jit(nopython=True)
-    def get_output_delta(a: np.ndarray, target: np.ndarray):
-        return a - target
-
-    @staticmethod
-    @jit(nopython=True)
-    def get_deltas(activation_prime: np.ndarray, W: np.ndarray, last_delta: np.ndarray):
-        return activation_prime * np.dot(W.T, last_delta)
-
-    @staticmethod
-    @jit(nopython=True)
-    def get_weight_gradient(delta: np.ndarray, prev_activation: np.ndarray):
-        return np.outer(delta, prev_activation)
+    def soft_max(z: np.ndarray):
+        a = np.zeros((z.shape))
+        for i, zi in enumerate(z):
+            a[i] = np.exp(zi) / np.sum(np.exp(zi))
+        return a

@@ -28,7 +28,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
     layers_size: list = []
     val_accuracy: list = []
     weighted_sums: list = []
-    best_loss: list = [0, 0]
+    best_loss: list = [1, 0]
     default_model_file: str = "data/models/model"
 
     """
@@ -42,7 +42,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             "--l1_laplacian",
             action="store_const",
             const=self.l1_laplacian,
-            help="Use Lasso Regression as regularization function (default)",
+            help="Use Lasso Regression as regularization function",
             dest="type_regularization",
         )
         regularization_group.add_argument(
@@ -50,7 +50,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             "--l2_gaussian",
             action="store_const",
             const=self.l2_gaussian,
-            help="Use Ridge Regression as regularization function",
+            help="Use Ridge Regression as regularization function (default)",
             dest="type_regularization",
         )
 
@@ -96,7 +96,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             "--sigmoid",
             action="store_const",
             const={"activation": self.sigmoid, "derivative": self.d_sigmoid},
-            help="Use sigmoid as activation function",
+            help="Use sigmoid as activation function (default)",
             dest="type_activation",
         )
         activation_group.add_argument(
@@ -104,7 +104,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             "--tanh",
             action="store_const",
             const={"activation": self.tanh, "derivative": self.d_tanh},
-            help="Use tanh as activation function (default)",
+            help="Use tanh as activation function",
             dest="type_activation",
         )
         activation_group.add_argument(
@@ -151,9 +151,8 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         parser.add_argument(
             "-s",
             "--seed",
-            action="store_const",
-            const=1,
-            help=f"Provide Seed 82876",
+            type=int,
+            help=f"Provide Seed",
             dest="seed",
         )
 
@@ -170,13 +169,13 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         self.name = self.get_args("model_name_file", default_value="main")
         self.seed = self.get_args("seed", default_value=0)
         if self.seed:
-            np.random.seed(82876)
+            np.random.seed(self.seed)
         if self.model_file is None:
             self.model_file = f"{self.default_model_file}_{self.name}.npy"
 
         self.activation_func, self.derivative = self.get_args(
             "type_activation",
-            default_value={"activation": self.tanh, "derivative": self.d_tanh},
+            default_value={"activation": self.sigmoid, "derivative": self.d_sigmoid},
         ).values()
         self.optimizer = self.get_args(
             "type_optimizer",
@@ -184,7 +183,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         )
         self.regularization = self.get_args(
             "type_regularization",
-            default_value=self.l1_laplacian,
+            default_value=self.l2_gaussian,
         )
 
     def _add_layer(self, size: int):
@@ -214,13 +213,10 @@ class Network(Metrics, DataPreprocessing, Optimizer):
 
     @staticmethod
     @jit(nopython=True)
-    def _to_one_hot(y: int, k: int) -> np.array:
-        """
-        Convertit un entier en vecteur "one-hot".
-        to_one_hot(5, 10) -> (0, 0, 0, 0, 1, 0, 0, 0, 0)
-        """
-        one_hot = np.zeros(k)
-        one_hot[y] = 1
+    def _to_one_hots(y: np.ndarray, k: int) -> np.array:
+        one_hot = np.zeros((y.shape[0], k))
+        for i, yi in enumerate(y):
+            one_hot[i][int(yi)] = 1
         return one_hot
 
     def _feedforward(self, X: np.ndarray):
@@ -228,64 +224,35 @@ class Network(Metrics, DataPreprocessing, Optimizer):
         self.weighted_sums = []
         for layer in self.layers:
             self.weighted_sums.append(
-                self._weighted_sum(self.activations[-1], layer.weights, layer.biases)
+                self._weighted_sum(self.activations[-1], layer.weights.T, layer.biases)
             )
             self.activations.append(layer.activation(self.weighted_sums[-1]))
 
-    def _calcul_backpropagation(self, y: float):
-        delta = self.get_output_delta(self.activations[-1], self._to_one_hot(int(y), 2))
-        deltas = [delta]
+    def _backpropagation(self, Y):
+        dz = [self.activations[-1] - self._to_one_hots(Y, 2)]
+        dw = [np.dot(dz[-1].T, self.activations[-2]) / Y.size]
+        db = [np.sum(dz[-1], axis=0) / Y.size]
 
-        nb_layers = len(self.layers) - 2
-        for i in range(nb_layers, -1, -1):
+        for i in range(len(self.layers) - 2, -1, -1):
             layer = self.layers[i]
             next_layer = self.layers[i + 1]
-            activation_prime = layer.activation_prime(self.weighted_sums[i])
-            deltas.append(
-                self.get_deltas(activation_prime, next_layer.weights, deltas[-1])
-            )
-        self.deltas = deltas[::-1]
+            derivate = layer.activation_prime(self.weighted_sums[i])
 
-    def _apply_backpropagation(self):
-        bias_gradient = []
-        weight_gradient = []
-        for i in range(len(self.layers)):
-            weight_gradient.append(
-                self.get_weight_gradient(self.deltas[i], self.activations[i])
-            )
-            bias_gradient.append(self.deltas[i])
-        return weight_gradient, bias_gradient
+            dz.append(np.dot(dz[-1], next_layer.weights) * derivate)
+            dw.append(np.dot(dz[-1].T, self.activations[i]) / Y.size)
+            db.append(np.sum(dz[-1], axis=0) / Y.size)
+        return dw[::-1], db[::-1]
 
     def _train_batch(self, X: np.ndarray, Y: np.ndarray, learning_rate: float):
-        weight_gradient = [np.zeros(layer.weights.shape) for layer in self.layers]
-        bias_gradient = [np.zeros(layer.biases.shape) for layer in self.layers]
-        for (x, y) in zip(X, Y):
-            warnings.simplefilter("default")
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self._feedforward(x)
-            self._calcul_backpropagation(y)
-            new_weight_gradient, new_bias_gradient = self._apply_backpropagation()
-            for i in range(len(self.layers)):
-                weight_gradient[i] += new_weight_gradient[i]
-                bias_gradient[i] += new_bias_gradient[i]
+        warnings.simplefilter("default")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self._feedforward(X)
+        dw, db = self._backpropagation(Y)
 
-        for layer, wg, bg in zip(self.layers, weight_gradient, bias_gradient):
-            layer.update_weights(layer.weights, wg / Y.size, learning_rate)
-            layer.update_biases(layer.biases, bg / Y.size, learning_rate)
-
-    """
-    Predict
-    """
-
-    def _predict_feedforward(self, input_data: np.ndarray):
-        activation = input_data
-        for layer in self.layers:
-            activation = layer.forward(activation)
-        return activation
-
-    def _predict(self, input_data: np.ndarray):
-        return np.argmax(self._predict_feedforward(input_data))
+        for layer, dwi, dbi in zip(self.layers, dw, db):
+            layer.update_weights(layer.weights, dwi, learning_rate)
+            layer.update_biases(layer.biases, dbi, learning_rate)
 
     def __init__(
         self,
@@ -322,7 +289,7 @@ class Network(Metrics, DataPreprocessing, Optimizer):
             self._train_batch(X_batch, Y_batch, self.learning_rate)
 
     def _check_loss(self, e: int, watch_perf: int):
-        if (e > watch_perf or self.loss[-1] < 0.05) and self.best_loss[0] < self.loss[
+        if (e > watch_perf or self.loss[-1] < 0.05) and self.best_loss[0] > self.loss[
             -1
         ]:
             self.best_loss = [self.loss[-1], copy.deepcopy(self.layers)]

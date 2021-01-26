@@ -22,7 +22,6 @@ class Layer(Math, Optimizer):
         self.input_size = input_size
         self.biases = np.random.randn(size)
         self.weights = np.random.randn(size, input_size)
-        self.pre_activation = self._weighted_sum
         self.activation = activation
         self.activation_prime = derivative
         self.regularization = regularization
@@ -35,11 +34,6 @@ class Layer(Math, Optimizer):
     """
     Public Methods
     """
-
-    def forward(self, data: np.ndarray):
-        aggregation = self.pre_activation(data, self.weights, self.biases)
-        activation = self.activation(aggregation)
-        return activation
 
     def update_weights(
         self, weights: np.ndarray, gradient: np.ndarray, learning_rate: float
