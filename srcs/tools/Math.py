@@ -113,9 +113,7 @@ class Math:
     def cross_entropy(Y: np.ndarray, Z: np.ndarray):
         epsilon = 1e-7
         Z = np.clip(Z, epsilon, 1.0 - epsilon)
-        return (
-            np.sum(Y * np.log(Z) + (1 - Y) * np.log(1 - Z)) / -Z.shape[0] / Y.shape[1]
-        )
+        return np.sum(Y * np.log(Z) + (1 - Y) * np.log(1 - Z)) / -Y.size
 
     """
     OUTPUT
