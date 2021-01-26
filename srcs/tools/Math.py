@@ -126,22 +126,3 @@ class Math:
         for i, zi in enumerate(z):
             a[i] = np.exp(zi) / np.sum(np.exp(zi))
         return a
-
-    """
-    OPTIMIZATION UTILS
-    """
-
-    @staticmethod
-    @jit(nopython=True)
-    def get_output_delta(a: np.ndarray, y: np.ndarray):
-        return a - y
-
-    @staticmethod
-    @jit(nopython=True)
-    def get_deltas(dz: np.ndarray, W: np.ndarray, derivate: np.ndarray):
-        return np.dot(dz, W) * derivate
-
-    @staticmethod
-    @jit(nopython=True)
-    def get_weight_gradient(dz: np.ndarray, prev_activation: np.ndarray):
-        return np.dot(dz, prev_activation)
